@@ -17,40 +17,41 @@
       "type": "section",
       "label": { "en": "Android TV / Google TV Connection", "fr": "Connexion Android TV / Google TV" },
       "description": {
-        "en": "Configure your Android TV devices. You can connect and pair multiple TVs on your local network.",
-        "fr": "Configurez vos appareils Android TV. Vous pouvez connecter et appairer plusieurs TV sur votre réseau local."
+        "en": "Enter the IP address and name of your Android TV device to start pairing. You can pair multiple TVs one by one.",
+        "fr": "Saisissez l'adresse IP et le nom de votre appareil Android TV pour démarrer l'appairage. Vous pouvez appairer plusieurs TV une par une."
       }
     },
     {
-      "key": "tvs",
-      "type": "array",
-      "label": { "en": "Android TV Devices", "fr": "Appareils Android TV" },
-      "items": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "label": { "en": "TV Name", "fr": "Nom de la TV" },
-            "default": "Living Room TV"
-          },
-          "ip": {
-            "type": "string",
-            "label": { "en": "TV IP Address", "fr": "Adresse IP de la TV" },
-            "required": true,
-            "default": "192.168.1.50"
-          },
-          "certificate_key": {
-            "type": "secret",
-            "label": { "en": "Client Private Key", "fr": "Clé privée client" },
-            "required": false
-          },
-          "certificate_cert": {
-            "type": "secret",
-            "label": { "en": "Client Certificate", "fr": "Certificat client" },
-            "required": false
-          }
-        }
-      }
+      "key": "tv_name",
+      "type": "string",
+      "label": { "en": "TV Name", "fr": "Nom de la TV" },
+      "description": {
+        "en": "Display name for the TV device in Gladys (e.g. Living Room TV).",
+        "fr": "Nom d'affichage de la TV dans Gladys (ex : TV Salon)."
+      },
+      "required": false,
+      "default": "Android TV"
+    },
+    {
+      "key": "tv_ip",
+      "type": "string",
+      "label": { "en": "TV IP Address", "fr": "Adresse IP de la TV" },
+      "description": {
+        "en": "Local IP address of your Android TV / Google TV (e.g. 192.168.1.50).",
+        "fr": "Adresse IP locale de votre Android TV / Google TV (ex : 192.168.1.50)."
+      },
+      "required": true,
+      "default": "192.168.1.50"
+    },
+    {
+      "key": "pairing_pin",
+      "type": "string",
+      "label": { "en": "Pairing Code (PIN)", "fr": "Code d'association (PIN)" },
+      "description": {
+        "en": "6-character PIN code displayed on your TV screen after clicking 'Start Pairing'.",
+        "fr": "Code PIN à 6 caractères affiché sur votre écran TV après avoir cliqué sur 'Démarrer l'appairage'."
+      },
+      "required": false
     },
     {
       "key": "enable_app_shortcuts",
@@ -68,14 +69,14 @@
     {
       "key": "start_pairing",
       "label": {
-        "en": "1. Start Pairing (Show PIN on target TV)",
-        "fr": "1. Démarrer l'appairage (Afficher le PIN sur la TV ciblée)"
+        "en": "1. Start Pairing (Show PIN on TV)",
+        "fr": "1. Démarrer l'appairage (Afficher le PIN sur la TV)"
       },
       "timeout_seconds": 30
     },
     {
       "key": "submit_pin",
-      "label": { "en": "2. Confirm PIN Code", "fr": "2. Valider le code PIN" },
+      "label": { "en": "2. Confirm PIN Code & Add TV", "fr": "2. Valider le code PIN & Ajouter la TV" },
       "timeout_seconds": 30
     },
     {

@@ -35,6 +35,10 @@ export function normalizeConfig(rawConfig = {}) {
     ];
   }
 
+  const tvName = (typeof rawConfig.tv_name === 'string' && rawConfig.tv_name.trim()) || 'Android TV';
+  const tvIp = (typeof rawConfig.tv_ip === 'string' && rawConfig.tv_ip.trim()) || '192.168.1.50';
+  const pairingPin = (typeof rawConfig.pairing_pin === 'string' && rawConfig.pairing_pin.trim()) || '';
+
   const enableAppShortcuts =
     typeof rawConfig.enable_app_shortcuts === 'boolean'
       ? rawConfig.enable_app_shortcuts
@@ -43,6 +47,9 @@ export function normalizeConfig(rawConfig = {}) {
         rawConfig.enable_app_shortcuts === true;
 
   return {
+    tv_name: tvName,
+    tv_ip: tvIp,
+    pairing_pin: pairingPin,
     tvs,
     enable_app_shortcuts: Boolean(enableAppShortcuts),
   };

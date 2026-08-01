@@ -108,7 +108,8 @@ export async function buildDiscoveredDevices(gladys, config) {
 export async function handleActionExecution(gladys, actionKey, fields, clientManager, currentConfig) {
   logger.info(`[Action execution] Triggered action: ${actionKey}`);
 
-  const targetIp = fields?.tv_ip || fields?.target_tv_ip || currentConfig.tvs?.[0]?.ip;
+  const targetIp = fields?.tv_ip || fields?.target_tv_ip || currentConfig.tv_ip || currentConfig.tvs?.[0]?.ip;
+  const targetName = fields?.tv_name || currentConfig.tv_name || `Android TV (${targetIp})`;
 
   if (!targetIp) {
     throw new Error('Please specify a valid TV IP address for pairing.');
@@ -116,7 +117,7 @@ export async function handleActionExecution(gladys, actionKey, fields, clientMan
 
   const existingTvConfig = currentConfig.tvs?.find((t) => t.ip === targetIp) || {
     ip: targetIp,
-    name: `Android TV (${targetIp})`,
+    name: targetName,
     certificate_key: '',
     certificate_cert: '',
   };
@@ -129,15 +130,15 @@ export async function handleActionExecution(gladys, actionKey, fields, clientMan
     return {
       success: true,
       message: {
-        en: `Pairing initiated for ${targetIp}! Check your TV screen for a 6-digit PIN code, enter it in the "Pairing Code (PIN)" field, then click "Confirm PIN Code".`,
-        fr: `Appairage démarré pour ${targetIp} ! Vérifiez le code PIN à 6 chiffres sur votre TV, saisissez-le dans le champ "Code d'association (PIN)", puis cliquez sur "Valider le code PIN".`,
+        en: `Pairing initiated for ${targetIp}! Check your TV screen for a 6-digit PIN code, enter it in the "Pairing Code (PIN)" field, then click "Confirm PIN Code & Add TV".`,
+        fr: `Appairage démarré pour ${targetIp} ! Vérifiez le code PIN à 6 chiffres sur votre TV, saisissez-le dans le champ "Code d'association (PIN)", puis cliquez sur "Valider le code PIN & Ajouter la TV".`,
       },
       data: result,
     };
   }
 
   if (actionKey === 'submit_pin') {
-    const pin = fields?.pairing_pin;
+    const pin = fields?.pairing_pin || currentConfig.pairing_pin;
     if (!pin) {
       throw new Error('Pairing PIN code is required. Please fill in the PIN code field.');
     }
@@ -153,6 +154,7 @@ export async function handleActionExecution(gladys, actionKey, fields, clientMan
       const updatedTvEntry = {
         ...existingTvConfig,
         ip: targetIp,
+        name: targetName,
         certificate_key: result.certificates.key,
         certificate_cert: result.certificates.cert,
       };
