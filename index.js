@@ -21,7 +21,7 @@ async function initTVConnections() {
 }
 
 // Listen for config updates
-gladys.onConfigChange((newConfig) => {
+gladys.onConfigUpdated((newConfig) => {
   logger.info('Configuration updated');
   config = normalizeConfig(newConfig);
   initTVConnections();
