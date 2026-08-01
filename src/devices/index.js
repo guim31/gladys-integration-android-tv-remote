@@ -5,13 +5,15 @@ import { SUPPORTED_APPS } from './apps.js';
  * Build device payload for an Android TV device.
  *
  * @param {Object} gladys Gladys integration SDK instance
- * @param {Object} config Normalized integration configuration
+ * @param {Object} tvConfig TV configuration object ({ ip, name, certificate_key, certificate_cert })
+ * @param {boolean} enableAppShortcuts Whether app shortcuts features are enabled
  * @returns {Object} Gladys Device object
  */
-export function buildAndroidTVDevice(gladys, config) {
-  const ip = config.tv_ip;
+export function buildAndroidTVDevice(gladys, tvConfig, enableAppShortcuts = true) {
+  const ip = tvConfig.ip;
   const ipSanitized = ip.replace(/[^a-zA-Z0-9]/g, '_');
   const deviceExternalId = gladys.externalId(`tv:${ipSanitized}`);
+  const deviceName = tvConfig.name || `Android TV (${ip})`;
 
   const features = [
     {
@@ -62,7 +64,7 @@ export function buildAndroidTVDevice(gladys, config) {
   ];
 
   // If enabled in settings, add app shortcuts features
-  if (config.enable_app_shortcuts) {
+  if (enableAppShortcuts) {
     SUPPORTED_APPS.forEach((app) => {
       features.push({
         name: `App ${app.name}`,
@@ -79,83 +81,108 @@ export function buildAndroidTVDevice(gladys, config) {
   }
 
   return {
-    name: `Android TV (${ip})`,
+    name: deviceName,
     external_id: deviceExternalId,
     selector: deviceExternalId,
     features,
     params: [
       { name: 'TV_IP', value: ip },
-      { name: 'CERT_KEY', value: config.certificate_key || '' },
-      { name: 'CERT_CERT', value: config.certificate_cert || '' },
+      { name: 'CERT_KEY', value: tvConfig.certificate_key || '' },
+      { name: 'CERT_CERT', value: tvConfig.certificate_cert || '' },
     ],
   };
 }
 
 /**
- * Handle discovery requests (mDNS or manual config device build).
+ * Handle discovery requests (build devices for all configured TVs).
  */
 export async function buildDiscoveredDevices(gladys, config) {
-  logger.info('[AndroidTV] Building discovered device list...');
-  const device = buildAndroidTVDevice(gladys, config);
-  return [device];
+  logger.info('[AndroidTV] Building discovered devices list...');
+  const tvs = config.tvs || [];
+  return tvs.map((tv) => buildAndroidTVDevice(gladys, tv, config.enable_app_shortcuts));
 }
 
 /**
  * Action handler for UI action requests (start_pairing, submit_pin, test_connection).
  */
-export async function handleActionExecution(gladys, actionKey, fields, client, currentConfig) {
+export async function handleActionExecution(gladys, actionKey, fields, clientManager, currentConfig) {
   logger.info(`[Action execution] Triggered action: ${actionKey}`);
 
+  const targetIp = fields?.tv_ip || fields?.target_tv_ip || currentConfig.tvs?.[0]?.ip;
+
+  if (!targetIp) {
+    throw new Error('Please specify a valid TV IP address for pairing.');
+  }
+
+  const existingTvConfig = currentConfig.tvs?.find((t) => t.ip === targetIp) || {
+    ip: targetIp,
+    name: `Android TV (${targetIp})`,
+    certificate_key: '',
+    certificate_cert: '',
+  };
+
+  const client = clientManager.getOrCreateClient(existingTvConfig);
+
   if (actionKey === 'start_pairing') {
-    if (!currentConfig.tv_ip) {
-      throw new Error('Please configure TV IP address before pairing.');
-    }
-    logger.info(`[Action execution] Starting pairing with ${currentConfig.tv_ip}...`);
+    logger.info(`[Action execution] Starting pairing with ${targetIp}...`);
     const result = await client.startPairing();
     return {
       success: true,
       message: {
-        en: 'Pairing initiated! Check your TV screen for a 6-digit PIN code, enter it in the "Pairing Code (PIN)" field, then click "Confirm PIN Code".',
-        fr: 'Appairage démarré ! Vérifiez le code PIN à 6 chiffres sur votre TV, saisissez-le dans le champ "Code d\'association (PIN)", puis cliquez sur "Valider le code PIN".',
+        en: `Pairing initiated for ${targetIp}! Check your TV screen for a 6-digit PIN code, enter it in the "Pairing Code (PIN)" field, then click "Confirm PIN Code".`,
+        fr: `Appairage démarré pour ${targetIp} ! Vérifiez le code PIN à 6 chiffres sur votre TV, saisissez-le dans le champ "Code d'association (PIN)", puis cliquez sur "Valider le code PIN".`,
       },
       data: result,
     };
   }
 
   if (actionKey === 'submit_pin') {
-    const pin = fields?.pairing_pin || currentConfig.pairing_pin;
+    const pin = fields?.pairing_pin;
     if (!pin) {
       throw new Error('Pairing PIN code is required. Please fill in the PIN code field.');
     }
 
-    logger.info(`[Action execution] Submitting PIN code: ${pin}...`);
+    logger.info(`[Action execution] Submitting PIN code for ${targetIp}...`);
     const result = await client.submitPin(pin);
 
-    // Save generated TLS client certificate in configuration
+    // Update config with certificates for target TV
     if (result.certificates) {
-      await gladys.saveConfig({
+      const updatedTvs = [...(currentConfig.tvs || [])];
+      const tvIndex = updatedTvs.findIndex((t) => t.ip === targetIp);
+
+      const updatedTvEntry = {
+        ...existingTvConfig,
+        ip: targetIp,
         certificate_key: result.certificates.key,
         certificate_cert: result.certificates.cert,
-      });
+      };
+
+      if (tvIndex >= 0) {
+        updatedTvs[tvIndex] = updatedTvEntry;
+      } else {
+        updatedTvs.push(updatedTvEntry);
+      }
+
+      await gladys.saveConfig({ tvs: updatedTvs });
     }
 
     return {
       success: true,
       message: {
-        en: 'Pairing successful! TLS certificates stored successfully.',
-        fr: 'Appairage réussi ! Les certificats TLS ont été enregistrés avec succès.',
+        en: `Pairing successful for ${targetIp}! TLS certificates stored successfully.`,
+        fr: `Appairage réussi pour ${targetIp} ! Les certificats TLS ont été enregistrés avec succès.`,
       },
     };
   }
 
   if (actionKey === 'test_connection') {
-    logger.info(`[Action execution] Testing connection to ${currentConfig.tv_ip}...`);
+    logger.info(`[Action execution] Testing connection to ${targetIp}...`);
     await client.connect();
     return {
       success: true,
       message: {
-        en: `Successfully connected to Android TV at ${currentConfig.tv_ip}!`,
-        fr: `Connexion réussie à l'Android TV sur ${currentConfig.tv_ip} !`,
+        en: `Successfully connected to Android TV at ${targetIp}!`,
+        fr: `Connexion réussie à l'Android TV sur ${targetIp} !`,
       },
     };
   }

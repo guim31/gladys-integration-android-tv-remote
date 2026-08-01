@@ -4,78 +4,32 @@
 
 import { GladysIntegration, logger } from '@gladysassistant/integration-sdk';
 import { normalizeConfig } from './src/config.js';
-import { AndroidTVClient } from './src/remote/android-tv-client.js';
+import { AndroidTVClientManager } from './src/remote/client-manager.js';
 import { buildDiscoveredDevices, handleActionExecution } from './src/devices/index.js';
 import { SUPPORTED_APPS } from './src/devices/apps.js';
 
 const gladys = new GladysIntegration();
 
 let config = normalizeConfig();
-let tvClient = null;
+const clientManager = new AndroidTVClientManager(gladys);
 
 /**
- * Initialize or re-initialize connection to Android TV device.
+ * Initialize or re-initialize connections to all configured Android TV devices.
  */
-async function initTVConnection() {
-  if (tvClient) {
-    tvClient.disconnect();
-    tvClient = null;
-  }
-
-  tvClient = new AndroidTVClient(config);
-
-  // Register real-time feedback event callbacks
-  tvClient.on('power', async (state) => {
-    const powerFeatureId = gladys.externalId(`tv:${config.tv_ip.replace(/[^a-zA-Z0-9]/g, '_')}:power`);
-    await gladys.publishState(powerFeatureId, state ? 1 : 0).catch(() => {});
-  });
-
-  tvClient.on('volume', async (vol) => {
-    const ipSanitized = config.tv_ip.replace(/[^a-zA-Z0-9]/g, '_');
-    if (typeof vol.level === 'number') {
-      const volFeatureId = gladys.externalId(`tv:${ipSanitized}:volume`);
-      await gladys.publishState(volFeatureId, vol.level).catch(() => {});
-    }
-    if (typeof vol.muted === 'boolean') {
-      const muteFeatureId = gladys.externalId(`tv:${ipSanitized}:mute`);
-      await gladys.publishState(muteFeatureId, vol.muted ? 1 : 0).catch(() => {});
-    }
-  });
-
-  // Attempt connection if certificates are present
-  if (config.certificate_key && config.certificate_cert) {
-    try {
-      await tvClient.connect();
-      await gladys.setConnectionStatus(true);
-      logger.info(`Android TV Remote connected to ${config.tv_ip}`);
-    } catch (err) {
-      logger.error('Failed to connect to Android TV:', err.message);
-      await gladys
-        .setConnectionStatus(false, {
-          en: `Connection failed: ${err.message}`,
-          fr: `Échec de connexion : ${err.message}`,
-        })
-        .catch(() => {});
-    }
-  } else {
-    logger.info('No paired TLS certificates found. Please pair with your Android TV in integration settings.');
-    await gladys.setConnectionStatus(false, {
-      en: 'Pairing required. Click Start Pairing in integration settings.',
-      fr: "Appairage requis. Cliquez sur Démarrer l'appairage dans les paramètres.",
-    });
-  }
+async function initTVConnections() {
+  await clientManager.connectAll(config.tvs);
 }
 
 // Listen for config updates
 gladys.onConfigChange((newConfig) => {
   logger.info('Configuration updated');
   config = normalizeConfig(newConfig);
-  initTVConnection();
+  initTVConnections();
 });
 
 // Handle scan requests
 gladys.onScanRequest(async () => {
-  logger.info('onScanRequest -> publishing discovered Android TV device');
+  logger.info('onScanRequest -> publishing discovered Android TV devices');
   const devices = await buildDiscoveredDevices(gladys, config);
   await gladys.publishDiscoveredDevices(devices);
 });
@@ -84,8 +38,23 @@ gladys.onScanRequest(async () => {
 gladys.onSetValue(async (device, feature, value) => {
   logger.info(`onSetValue <- ${feature.external_id} = ${value}`);
 
+  // Extract TV IP address from device parameters or feature external ID
+  let tvIp = device?.params?.find((p) => p.name === 'TV_IP')?.value;
+  if (!tvIp && feature?.external_id) {
+    const match = feature.external_id.match(/tv:([0-9_]+):/);
+    if (match) {
+      tvIp = match[1].replace(/_/g, '.');
+    }
+  }
+
+  if (!tvIp) {
+    throw new Error(`Unable to determine target TV IP for feature ${feature.external_id}`);
+  }
+
+  const tvClient = clientManager.getClient(tvIp);
+
   if (!tvClient || !tvClient.isConnected) {
-    throw new Error('Android TV is not connected. Make sure the TV is turned ON and paired.');
+    throw new Error(`Android TV at ${tvIp} is not connected. Make sure the TV is turned ON and paired.`);
   }
 
   const extId = feature.external_id;
@@ -140,13 +109,10 @@ gladys.onSetValue(async (device, feature, value) => {
 // Handle UI actions (start_pairing, submit_pin, test_connection)
 gladys.onAction(async (actionKey, fields) => {
   const currentConfig = normalizeConfig(await gladys.getConfig().catch(() => ({})));
-  if (!tvClient) {
-    tvClient = new AndroidTVClient(currentConfig);
-  }
-  return handleActionExecution(gladys, actionKey, fields, tvClient, currentConfig);
+  return handleActionExecution(gladys, actionKey, fields, clientManager, currentConfig);
 });
 
 // Startup initialization
 const rawConfig = await gladys.getConfig().catch(() => ({}));
 config = normalizeConfig(rawConfig);
-await initTVConnection();
+await initTVConnections();
