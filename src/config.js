@@ -7,7 +7,11 @@
 export function normalizeConfig(rawConfig = {}) {
   let tvs;
 
-  if (Array.isArray(rawConfig.tvs)) {
+  const tvName = (typeof rawConfig.tv_name === 'string' && rawConfig.tv_name.trim()) || 'Android TV';
+  const tvIp = (typeof rawConfig.tv_ip === 'string' && rawConfig.tv_ip.trim()) || '192.168.1.50';
+  const pairingPin = (typeof rawConfig.pairing_pin === 'string' && rawConfig.pairing_pin.trim()) || '';
+
+  if (Array.isArray(rawConfig.tvs) && rawConfig.tvs.length > 0) {
     tvs = rawConfig.tvs.map((tv, idx) => ({
       ip: (typeof tv?.ip === 'string' && tv.ip.trim()) || `192.168.1.${50 + idx}`,
       name: (typeof tv?.name === 'string' && tv.name.trim()) || `Android TV ${tv?.ip || idx + 1}`,
@@ -17,8 +21,8 @@ export function normalizeConfig(rawConfig = {}) {
   } else if (typeof rawConfig.tv_ip === 'string' && rawConfig.tv_ip.trim()) {
     tvs = [
       {
-        ip: rawConfig.tv_ip.trim(),
-        name: `Android TV (${rawConfig.tv_ip.trim()})`,
+        ip: tvIp,
+        name: tvName !== 'Android TV' ? tvName : `Android TV (${tvIp})`,
         certificate_key: (typeof rawConfig.certificate_key === 'string' && rawConfig.certificate_key.trim()) || '',
         certificate_cert: (typeof rawConfig.certificate_cert === 'string' && rawConfig.certificate_cert.trim()) || '',
       },
@@ -34,10 +38,6 @@ export function normalizeConfig(rawConfig = {}) {
       },
     ];
   }
-
-  const tvName = (typeof rawConfig.tv_name === 'string' && rawConfig.tv_name.trim()) || 'Android TV';
-  const tvIp = (typeof rawConfig.tv_ip === 'string' && rawConfig.tv_ip.trim()) || '192.168.1.50';
-  const pairingPin = (typeof rawConfig.pairing_pin === 'string' && rawConfig.pairing_pin.trim()) || '';
 
   const enableAppShortcuts =
     typeof rawConfig.enable_app_shortcuts === 'boolean'

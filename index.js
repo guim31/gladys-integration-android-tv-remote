@@ -107,9 +107,12 @@ gladys.onSetValue(async (device, feature, value) => {
 });
 
 // Handle UI actions (start_pairing, submit_pin, test_connection)
-gladys.onAction(async (actionKey, fields) => {
-  const currentConfig = normalizeConfig(await gladys.getConfig().catch(() => ({})));
-  return handleActionExecution(gladys, actionKey, fields, clientManager, currentConfig);
+const ACTIONS = ['start_pairing', 'submit_pin', 'test_connection'];
+ACTIONS.forEach((actionKey) => {
+  gladys.onAction(actionKey, async (fields) => {
+    const currentConfig = normalizeConfig(await gladys.getConfig().catch(() => ({})));
+    return handleActionExecution(gladys, actionKey, fields, clientManager, currentConfig);
+  });
 });
 
 // Startup initialization

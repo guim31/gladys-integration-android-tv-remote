@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildAndroidTVDevice, buildDiscoveredDevices } from '../src/devices/index.js';
+import { buildAndroidTVDevice, buildDiscoveredDevices, handleActionExecution } from '../src/devices/index.js';
 import { SUPPORTED_APPS } from '../src/devices/apps.js';
 
 const mockGladys = {
@@ -72,4 +72,18 @@ test('SUPPORTED_APPS - should contain major TV streaming apps', () => {
   assert.ok(appIds.includes('disneyplus'));
   assert.ok(appIds.includes('primevideo'));
   assert.ok(appIds.includes('spotify'));
+});
+
+test('handleActionExecution - should trigger start_pairing action', async () => {
+  const mockClient = {
+    startPairing: async () => ({ status: 'secret_required' }),
+  };
+  const mockManager = {
+    getOrCreateClient: () => mockClient,
+  };
+  const result = await handleActionExecution(mockGladys, 'start_pairing', { tv_ip: '192.168.100.130' }, mockManager, {
+    tv_ip: '192.168.100.130',
+  });
+  assert.equal(result.success, true);
+  assert.ok(result.message.fr.includes('Appairage démarré'));
 });
