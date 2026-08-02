@@ -5,6 +5,35 @@ export class AndroidTVClientManager {
   constructor(gladys) {
     this.gladys = gladys;
     this.clients = new Map();
+    // TV going through the pairing sequence, remembered between step 1 and
+    // step 2 so the PIN action does not have to ask for the address again.
+    this.pairingTarget = null;
+  }
+
+  /**
+   * Remember the TV the pairing sequence was started for.
+   *
+   * @param {string} ip TV IP address.
+   * @param {string} name Display name typed by the user.
+   */
+  setPairingTarget(ip, name) {
+    this.pairingTarget = { ip, name };
+  }
+
+  /**
+   * The client of the TV being paired, when its session is still open.
+   *
+   * @returns {Object|undefined} { client, ip, name } of the pending pairing.
+   */
+  getPairingTarget() {
+    if (!this.pairingTarget) {
+      return undefined;
+    }
+    const client = this.clients.get(this.pairingTarget.ip);
+    if (!client || !client.isPairing) {
+      return undefined;
+    }
+    return { ...this.pairingTarget, client };
   }
 
   /**
@@ -114,13 +143,20 @@ export class AndroidTVClientManager {
    */
   disconnectAll() {
     for (const [ip, client] of this.clients.entries()) {
+      // Saving the configuration in the middle of a pairing must not destroy
+      // the session opened by step 1: step 2 needs that very socket, and the
+      // PIN displayed on the TV dies with it.
+      if (client.isPairing) {
+        logger.info(`[AndroidTV] Pairing in progress with ${ip}, keeping its session alive.`);
+        continue;
+      }
       try {
         client.disconnect();
       } catch (err) {
         logger.warn(`[AndroidTV] Error disconnecting client ${ip}:`, err.message);
       }
+      this.clients.delete(ip);
     }
-    this.clients.clear();
   }
 
   /**

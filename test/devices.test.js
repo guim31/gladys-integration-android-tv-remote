@@ -114,17 +114,51 @@ test('SUPPORTED_APPS - should contain major TV streaming apps', () => {
   assert.ok(appIds.includes('spotify'));
 });
 
-test('handleActionExecution - should trigger start_pairing action', async () => {
-  const client = { startPairing: async () => ({ status: 'secret_required' }) };
-  const manager = { getOrCreateClient: () => client };
+/**
+ * Build a client manager mock reproducing the pairing hand-off between the two
+ * numbered actions.
+ *
+ * @param {Object} client The client returned to every caller.
+ * @returns {Object} The mock manager.
+ */
+function createManagerMock(client) {
+  return {
+    pairingTarget: null,
+    getOrCreateClient: () => client,
+    setPairingTarget(ip, name) {
+      this.pairingTarget = { ip, name };
+    },
+    getPairingTarget() {
+      return this.pairingTarget ? { ...this.pairingTarget, client } : undefined;
+    },
+    refreshConnectionStatus: async () => {},
+  };
+}
 
-  const result = await handleActionExecution(mockGladys, 'start_pairing', { tv_ip: '192.168.100.130' }, manager, {
-    tv_ip: '192.168.100.130',
-    tvs: [],
-  });
+test('handleActionExecution - start_pairing should take its IP from the action field', async () => {
+  const client = { startPairing: async () => ({ status: 'secret_required' }) };
+  const manager = createManagerMock(client);
+
+  const result = await handleActionExecution(
+    mockGladys,
+    'start_pairing',
+    { tv_ip: '192.168.100.130', tv_name: 'Shield TV' },
+    manager,
+    { tvs: [] },
+  );
 
   assert.ok(result.en.includes('192.168.100.130'));
-  assert.ok(result.fr.includes('Appairage démarré'));
+  assert.ok(result.fr.includes('code PIN'));
+  // Step 2 must find the TV again without asking for the address twice.
+  assert.deepEqual(manager.pairingTarget, { ip: '192.168.100.130', name: 'Shield TV' });
+});
+
+test('handleActionExecution - start_pairing should reject a missing IP', async () => {
+  const manager = createManagerMock({});
+  await assert.rejects(
+    () => handleActionExecution(mockGladys, 'start_pairing', {}, manager, { tvs: [] }),
+    /IP address/,
+  );
 });
 
 test('handleActionExecution - submit_pin should store the certificates with setConfig', async () => {
@@ -137,60 +171,81 @@ test('handleActionExecution - submit_pin should store the certificates with setC
     },
   };
   const client = {
+    startPairing: async () => ({}),
     submitPin: async () => ({ status: 'success', certificates: { key: 'NEW_KEY', cert: 'NEW_CERT' } }),
   };
-  const manager = {
-    getOrCreateClient: () => client,
-    refreshConnectionStatus: async () => {},
-  };
+  const manager = createManagerMock(client);
 
-  const result = await handleActionExecution(gladys, 'submit_pin', {}, manager, {
-    tv_ip: '192.168.1.50',
-    tv_name: 'TV Salon',
-    pairing_pin: '123456',
+  await handleActionExecution(gladys, 'start_pairing', { tv_ip: '192.168.1.50', tv_name: 'TV Salon' }, manager, {
     tvs: [],
   });
+  const result = await handleActionExecution(gladys, 'submit_pin', { pairing_pin: 'B4B0C7' }, manager, { tvs: [] });
 
   assert.equal(saved[0].tvs.length, 1);
   assert.equal(saved[0].tvs[0].ip, '192.168.1.50');
+  assert.equal(saved[0].tvs[0].name, 'TV Salon');
   assert.equal(saved[0].tvs[0].certificate_key, 'NEW_KEY');
   assert.equal(saved[0].tvs[0].certificate_cert, 'NEW_CERT');
-  assert.ok(result.fr.includes('Appairage réussi'));
+  assert.ok(result.fr.includes('appairée'));
 });
 
 test('handleActionExecution - submit_pin should keep the other paired TVs', async () => {
   const saved = [];
   const gladys = { ...mockGladys, setConfig: async (partial) => saved.push(partial) };
   const client = {
+    startPairing: async () => ({}),
     submitPin: async () => ({ status: 'success', certificates: { key: 'K2', cert: 'C2' } }),
   };
-  const manager = { getOrCreateClient: () => client, refreshConnectionStatus: async () => {} };
+  const manager = createManagerMock(client);
+  const config = { tvs: [{ ip: '192.168.1.50', name: 'TV Salon', certificate_key: 'K1', certificate_cert: 'C1' }] };
 
-  await handleActionExecution(gladys, 'submit_pin', {}, manager, {
-    tv_ip: '192.168.1.51',
-    pairing_pin: '123456',
-    tvs: [{ ip: '192.168.1.50', name: 'TV Salon', certificate_key: 'K1', certificate_cert: 'C1' }],
-  });
+  await handleActionExecution(gladys, 'start_pairing', { tv_ip: '192.168.1.51' }, manager, config);
+  await handleActionExecution(gladys, 'submit_pin', { pairing_pin: 'B4B0C7' }, manager, config);
 
   assert.equal(saved[0].tvs.length, 2);
   assert.equal(saved[0].tvs[0].certificate_key, 'K1');
   assert.equal(saved[0].tvs[1].ip, '192.168.1.51');
 });
 
-test('handleActionExecution - should reject an action without any TV IP', async () => {
-  const manager = { getOrCreateClient: () => ({}) };
+test('handleActionExecution - submit_pin should explain that step 1 is missing', async () => {
+  const manager = createManagerMock({});
   await assert.rejects(
-    () => handleActionExecution(mockGladys, 'start_pairing', {}, manager, { tvs: [] }),
-    /IP address/,
+    () => handleActionExecution(mockGladys, 'submit_pin', { pairing_pin: 'B4B0C7' }, manager, { tvs: [] }),
+    /No pairing sequence is running/,
+  );
+});
+
+test('handleActionExecution - submit_pin should require a PIN', async () => {
+  const manager = createManagerMock({});
+  await assert.rejects(
+    () => handleActionExecution(mockGladys, 'submit_pin', {}, manager, { tvs: [] }),
+    /PIN code displayed on the TV/,
   );
 });
 
 test('handleActionExecution - test_connection should refuse an unpaired TV', async () => {
-  const client = { isPaired: () => false, isConnected: false, connect: async () => true };
-  const manager = { getOrCreateClient: () => client, refreshConnectionStatus: async () => {} };
+  const manager = createManagerMock({ isConnected: false, connect: async () => true });
 
   await assert.rejects(
-    () => handleActionExecution(mockGladys, 'test_connection', {}, manager, { tv_ip: '192.168.1.50', tvs: [] }),
+    () => handleActionExecution(mockGladys, 'test_connection', { tv_ip: '192.168.1.50' }, manager, { tvs: [] }),
     /not paired/,
   );
+});
+
+test('handleActionExecution - test_connection should default to the first paired TV', async () => {
+  let connected = false;
+  const manager = createManagerMock({
+    isConnected: false,
+    connect: async () => {
+      connected = true;
+      return true;
+    },
+  });
+
+  const result = await handleActionExecution(mockGladys, 'test_connection', {}, manager, {
+    tvs: [{ ip: '192.168.1.50', name: 'TV Salon', certificate_key: 'K', certificate_cert: 'C' }],
+  });
+
+  assert.ok(connected);
+  assert.ok(result.fr.includes('TV Salon'));
 });

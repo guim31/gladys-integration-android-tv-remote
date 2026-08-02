@@ -20,15 +20,16 @@ Intégration externe officielle pour **Gladys Assistant** permettant de contrôl
 
 ## ⚙️ Configuration & Appairage
 
-1. **Renseignez l'adresse IP** de votre Android TV / Google TV dans la configuration de l'intégration dans Gladys (ex : `192.168.1.50`), puis **enregistrez**.
-2. Cliquez sur l'action **`1. Démarrer l'appairage`**. Un code PIN à 6 caractères s'affiche à l'écran de votre téléviseur (qui doit être **allumé**).
-3. Saisissez ce code PIN dans le champ **`Code d'association (PIN)`** de la configuration, puis **enregistrez**.
-4. Cliquez sur **`2. Valider le code PIN & Ajouter la TV`**. Les certificats TLS clients sont générés et enregistrés dans la configuration de l'intégration.
-5. Effectuez un scan pour découvrir l'appareil et l'ajouter à vos appareils Gladys.
+Tout ce que vous avez à saisir se trouve **dans les actions elles-mêmes** : rien à enregistrer entre les étapes.
 
-Pour appairer une **seconde TV**, remplacez l'adresse IP dans le formulaire et recommencez à l'étape 1 : les TV déjà appairées sont conservées.
+1. Allumez votre téléviseur.
+2. **Étape 1 — Démarrer l'appairage** : saisissez l'**adresse IP** de la TV (ex : `192.168.1.50`) et, si vous le souhaitez, un **nom** (ex : `TV Salon`), puis exécutez l'action. Un code PIN à 6 caractères s'affiche à l'écran du téléviseur.
+3. **Étape 2 — Valider le code PIN** : saisissez le code affiché et exécutez l'action **dans la foulée** (le code expire). Les certificats TLS clients sont générés et enregistrés.
+4. Lancez une **recherche d'appareils** (onglet Découverte) pour ajouter la TV à vos appareils Gladys.
 
-> ℹ️ Seules les TV **déjà appairées** apparaissent lors du scan. Une TV sans certificat ne pourrait recevoir aucune commande.
+Pour appairer une **seconde TV**, reprenez à l'étape 1 avec sa propre adresse IP : les TV déjà appairées sont conservées.
+
+> ℹ️ Seules les TV **déjà appairées** apparaissent lors de la recherche. Une TV sans certificat ne pourrait recevoir aucune commande.
 
 ### Bon à savoir
 
@@ -50,7 +51,7 @@ docker run -d \
   -e GLADYS_HOST_API_URL=http://localhost:8080 \
   -e GLADYS_INTEGRATION_TOKEN=your_token_here \
   -e GLADYS_INTEGRATION_SELECTOR=android-tv-remote \
-  ghcr.io/guim31/gladys-integration-android-tv-remote:1.0.1
+  ghcr.io/guim31/gladys-integration-android-tv-remote:1.0.2
 ```
 
 ---

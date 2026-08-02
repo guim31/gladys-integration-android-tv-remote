@@ -6,8 +6,8 @@
     "en": "Gladys Assistant integration for Android TV and Google TV using Remote v2 protocol.",
     "fr": "Intégration Gladys Assistant pour Android TV et Google TV via le protocole Remote v2."
   },
-  "version": "1.0.1",
-  "docker_image": "ghcr.io/guim31/gladys-integration-android-tv-remote:1.0.1",
+  "version": "1.0.2",
+  "docker_image": "ghcr.io/guim31/gladys-integration-android-tv-remote:1.0.2",
   "gladys_version": ">=4.62.0",
   "cover_image": "https://raw.githubusercontent.com/guim31/gladys-integration-android-tv-remote/main/cover.png",
   "transports": ["local"],
@@ -15,51 +15,19 @@
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Android TV / Google TV Connection", "fr": "Connexion Android TV / Google TV" },
+      "label": { "en": "Pairing an Android TV / Google TV", "fr": "Appairer une Android TV / Google TV" },
       "description": {
-        "en": "Enter the IP address and name of your Android TV device to start pairing. You can pair multiple TVs one by one.",
-        "fr": "Saisissez l'adresse IP et le nom de votre appareil Android TV pour démarrer l'appairage. Vous pouvez appairer plusieurs TV une par une."
+        "en": "Everything you need to type lives in the two numbered actions at the bottom of this page — nothing to save in between. Turn your TV on, run step 1, then step 2, then scan for devices. Repeat for each TV you want to add.",
+        "fr": "Tout ce que vous avez à saisir se trouve dans les deux actions numérotées en bas de cette page — rien à enregistrer entre les deux. Allumez votre TV, lancez l'étape 1, puis l'étape 2, puis lancez une recherche d'appareils. Répétez l'opération pour chaque TV à ajouter."
       }
-    },
-    {
-      "key": "tv_name",
-      "type": "string",
-      "label": { "en": "TV Name", "fr": "Nom de la TV" },
-      "description": {
-        "en": "Display name for the TV device in Gladys (e.g. Living Room TV).",
-        "fr": "Nom d'affichage de la TV dans Gladys (ex : TV Salon)."
-      },
-      "required": false,
-      "default": "Android TV"
-    },
-    {
-      "key": "tv_ip",
-      "type": "string",
-      "label": { "en": "TV IP Address", "fr": "Adresse IP de la TV" },
-      "description": {
-        "en": "Local IP address of your Android TV / Google TV (e.g. 192.168.1.50).",
-        "fr": "Adresse IP locale de votre Android TV / Google TV (ex : 192.168.1.50)."
-      },
-      "required": true,
-      "default": "192.168.1.50"
-    },
-    {
-      "key": "pairing_pin",
-      "type": "string",
-      "label": { "en": "Pairing Code (PIN)", "fr": "Code d'association (PIN)" },
-      "description": {
-        "en": "6-character PIN code displayed on your TV screen after clicking 'Start Pairing'.",
-        "fr": "Code PIN à 6 caractères affiché sur votre écran TV après avoir cliqué sur 'Démarrer l'appairage'."
-      },
-      "required": false
     },
     {
       "key": "enable_app_shortcuts",
       "type": "boolean",
       "label": { "en": "Enable App Shortcuts", "fr": "Activer les raccourcis d'applications" },
       "description": {
-        "en": "Create individual features to launch apps (Netflix, YouTube, Prime Video, Disney+, Spotify, Plex, Arte).",
-        "fr": "Créer des fonctionnalités dédiées pour lancer des applications (Netflix, YouTube, Prime Video, Disney+, Spotify, Plex, Arte)."
+        "en": "Create individual features to launch apps (Netflix, YouTube, Prime Video, Disney+, Spotify, Plex, Arte, Molotov, myCANAL). Applies to the TVs added after the change.",
+        "fr": "Créer des fonctionnalités dédiées pour lancer des applications (Netflix, YouTube, Prime Video, Disney+, Spotify, Plex, Arte, Molotov, myCANAL). S'applique aux TV ajoutées après la modification."
       },
       "required": false,
       "default": true
@@ -69,20 +37,69 @@
     {
       "key": "start_pairing",
       "label": {
-        "en": "1. Start Pairing (Show PIN on TV)",
-        "fr": "1. Démarrer l'appairage (Afficher le PIN sur la TV)"
+        "en": "Step 1 — Start pairing (show the PIN on the TV)",
+        "fr": "Étape 1 — Démarrer l'appairage (afficher le PIN sur la TV)"
       },
-      "timeout_seconds": 30
+      "timeout_seconds": 30,
+      "fields": [
+        {
+          "key": "tv_ip",
+          "type": "string",
+          "label": { "en": "TV IP address", "fr": "Adresse IP de la TV" },
+          "description": {
+            "en": "Local IP address of the TV to pair, e.g. 192.168.1.50. The TV must be turned on.",
+            "fr": "Adresse IP locale de la TV à appairer, ex : 192.168.1.50. La TV doit être allumée."
+          },
+          "required": true
+        },
+        {
+          "key": "tv_name",
+          "type": "string",
+          "label": { "en": "TV name (optional)", "fr": "Nom de la TV (facultatif)" },
+          "description": {
+            "en": "Display name of the TV in Gladys, e.g. Living Room TV.",
+            "fr": "Nom d'affichage de la TV dans Gladys, ex : TV Salon."
+          },
+          "required": false
+        }
+      ]
     },
     {
       "key": "submit_pin",
-      "label": { "en": "2. Confirm PIN Code & Add TV", "fr": "2. Valider le code PIN & Ajouter la TV" },
-      "timeout_seconds": 30
+      "label": {
+        "en": "Step 2 — Confirm the PIN displayed on the TV",
+        "fr": "Étape 2 — Valider le code PIN affiché sur la TV"
+      },
+      "timeout_seconds": 30,
+      "fields": [
+        {
+          "key": "pairing_pin",
+          "type": "string",
+          "label": { "en": "PIN code", "fr": "Code PIN" },
+          "description": {
+            "en": "The 6-character code displayed on the TV screen after step 1. Type it here and run the action right away — the code is single use.",
+            "fr": "Le code à 6 caractères affiché sur l'écran de la TV après l'étape 1. Saisissez-le ici et exécutez l'action dans la foulée — le code est à usage unique."
+          },
+          "required": true
+        }
+      ]
     },
     {
       "key": "test_connection",
-      "label": { "en": "Test TV Connection", "fr": "Tester la connexion TV" },
-      "timeout_seconds": 30
+      "label": { "en": "Test the connection to a TV", "fr": "Tester la connexion à une TV" },
+      "timeout_seconds": 30,
+      "fields": [
+        {
+          "key": "tv_ip",
+          "type": "string",
+          "label": { "en": "TV IP address (optional)", "fr": "Adresse IP de la TV (facultatif)" },
+          "description": {
+            "en": "Leave empty to test the first paired TV.",
+            "fr": "Laissez vide pour tester la première TV appairée."
+          },
+          "required": false
+        }
+      ]
     }
   ]
 }

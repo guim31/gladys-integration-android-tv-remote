@@ -5,7 +5,6 @@ import { normalizeConfig } from '../src/config.js';
 test('normalizeConfig - should not invent a TV when nothing is configured', () => {
   const normalized = normalizeConfig({});
   assert.deepEqual(normalized.tvs, []);
-  assert.equal(normalized.tv_ip, '');
   assert.equal(normalized.enable_app_shortcuts, true);
 });
 
@@ -37,27 +36,26 @@ test('normalizeConfig - should preserve provided multi-TV config values', () => 
   assert.equal(normalized.enable_app_shortcuts, false);
 });
 
-test('normalizeConfig - should add the TV being configured in the form', () => {
-  const normalized = normalizeConfig({ tv_ip: ' 192.168.1.50 ', tv_name: 'TV Salon' });
-  assert.equal(normalized.tvs.length, 1);
-  assert.equal(normalized.tvs[0].ip, '192.168.1.50');
-  assert.equal(normalized.tvs[0].name, 'TV Salon');
-  assert.equal(normalized.tvs[0].certificate_key, '');
-});
-
-test('normalizeConfig - should not duplicate a TV already paired', () => {
-  const normalized = normalizeConfig({
-    tv_ip: '192.168.1.50',
-    tv_name: 'Nouveau nom',
-    tvs: [{ ip: '192.168.1.50', name: 'Ancien nom', certificate_key: 'KEY', certificate_cert: 'CERT' }],
-  });
-  assert.equal(normalized.tvs.length, 1);
-  assert.equal(normalized.tvs[0].name, 'Nouveau nom');
-  assert.equal(normalized.tvs[0].certificate_key, 'KEY');
+// Pairing inputs live in the action fields now: a leftover tv_ip from an older
+// version must not resurrect a TV in the list.
+test('normalizeConfig - should ignore the legacy tv_ip form field', () => {
+  const normalized = normalizeConfig({ tv_ip: '192.168.1.50', tv_name: 'TV Salon', pairing_pin: 'B4B0C7' });
+  assert.deepEqual(normalized.tvs, []);
 });
 
 test('normalizeConfig - should ignore malformed TV entries', () => {
   const normalized = normalizeConfig({ tvs: [{ name: 'No IP' }, null, { ip: '   ' }, { ip: '192.168.1.60' }] });
   assert.equal(normalized.tvs.length, 1);
   assert.equal(normalized.tvs[0].ip, '192.168.1.60');
+});
+
+test('normalizeConfig - should deduplicate TVs sharing an IP', () => {
+  const normalized = normalizeConfig({
+    tvs: [
+      { ip: '192.168.1.50', name: 'Premier', certificate_key: 'K', certificate_cert: 'C' },
+      { ip: '192.168.1.50', name: 'Doublon' },
+    ],
+  });
+  assert.equal(normalized.tvs.length, 1);
+  assert.equal(normalized.tvs[0].name, 'Premier');
 });

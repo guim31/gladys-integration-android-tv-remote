@@ -97,3 +97,33 @@ test('AndroidTVClientManager - should publish TV states on the matching feature 
     { externalId: 'androidtv:tv:192_168_1_50:mute', value: 1 },
   ]);
 });
+
+test('AndroidTVClientManager - a configuration save must not kill a pairing in progress', () => {
+  const manager = new AndroidTVClientManager(createMockGladys());
+
+  const pairing = manager.getOrCreateClient({ ip: '192.168.1.50' });
+  manager.getOrCreateClient({ ip: '192.168.1.51' });
+  pairing.isPairing = true;
+  manager.setPairingTarget('192.168.1.50', 'Salon TV');
+
+  // Saving the configuration reconnects everything; the session opened by
+  // step 1 holds the PIN currently displayed on the TV and must survive.
+  manager.disconnectAll();
+
+  assert.equal(manager.getClient('192.168.1.50'), pairing);
+  assert.equal(manager.getClient('192.168.1.51'), undefined);
+  assert.equal(manager.getPairingTarget().client, pairing);
+  assert.equal(manager.getPairingTarget().name, 'Salon TV');
+});
+
+test('AndroidTVClientManager - getPairingTarget should ignore a closed session', () => {
+  const manager = new AndroidTVClientManager(createMockGladys());
+
+  assert.equal(manager.getPairingTarget(), undefined);
+
+  manager.getOrCreateClient({ ip: '192.168.1.50' });
+  manager.setPairingTarget('192.168.1.50', 'Salon TV');
+
+  // isPairing stays false: the session never opened, or already ended.
+  assert.equal(manager.getPairingTarget(), undefined);
+});
