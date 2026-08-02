@@ -2,13 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeConfig } from '../src/config.js';
 
-test('normalizeConfig - should apply default values when config is empty', () => {
+test('normalizeConfig - should not invent a TV when nothing is configured', () => {
   const normalized = normalizeConfig({});
-  assert.equal(normalized.tvs.length, 1);
-  assert.equal(normalized.tvs[0].ip, '192.168.1.50');
-  assert.equal(normalized.tvs[0].name, 'Android TV (192.168.1.50)');
-  assert.equal(normalized.tvs[0].certificate_key, '');
-  assert.equal(normalized.tvs[0].certificate_cert, '');
+  assert.deepEqual(normalized.tvs, []);
+  assert.equal(normalized.tv_ip, '');
   assert.equal(normalized.enable_app_shortcuts, true);
 });
 
@@ -34,7 +31,33 @@ test('normalizeConfig - should preserve provided multi-TV config values', () => 
   assert.equal(normalized.tvs.length, 2);
   assert.equal(normalized.tvs[0].ip, '192.168.1.100');
   assert.equal(normalized.tvs[0].name, 'Salon TV');
+  assert.equal(normalized.tvs[0].certificate_key, 'MY_KEY_1');
   assert.equal(normalized.tvs[1].ip, '192.168.1.101');
   assert.equal(normalized.tvs[1].name, 'Chambre TV');
   assert.equal(normalized.enable_app_shortcuts, false);
+});
+
+test('normalizeConfig - should add the TV being configured in the form', () => {
+  const normalized = normalizeConfig({ tv_ip: ' 192.168.1.50 ', tv_name: 'TV Salon' });
+  assert.equal(normalized.tvs.length, 1);
+  assert.equal(normalized.tvs[0].ip, '192.168.1.50');
+  assert.equal(normalized.tvs[0].name, 'TV Salon');
+  assert.equal(normalized.tvs[0].certificate_key, '');
+});
+
+test('normalizeConfig - should not duplicate a TV already paired', () => {
+  const normalized = normalizeConfig({
+    tv_ip: '192.168.1.50',
+    tv_name: 'Nouveau nom',
+    tvs: [{ ip: '192.168.1.50', name: 'Ancien nom', certificate_key: 'KEY', certificate_cert: 'CERT' }],
+  });
+  assert.equal(normalized.tvs.length, 1);
+  assert.equal(normalized.tvs[0].name, 'Nouveau nom');
+  assert.equal(normalized.tvs[0].certificate_key, 'KEY');
+});
+
+test('normalizeConfig - should ignore malformed TV entries', () => {
+  const normalized = normalizeConfig({ tvs: [{ name: 'No IP' }, null, { ip: '   ' }, { ip: '192.168.1.60' }] });
+  assert.equal(normalized.tvs.length, 1);
+  assert.equal(normalized.tvs[0].ip, '192.168.1.60');
 });

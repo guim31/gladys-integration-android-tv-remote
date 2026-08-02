@@ -14,92 +14,96 @@ let config = normalizeConfig();
 const clientManager = new AndroidTVClientManager(gladys);
 
 /**
- * Initialize or re-initialize connections to all configured Android TV devices.
+ * Initialize or re-initialize the connections to every configured Android TV.
  */
 async function initTVConnections() {
   await clientManager.connectAll(config.tvs);
 }
 
+/**
+ * Refresh the local configuration from Gladys.
+ *
+ * On failure the last known configuration is kept: falling back to an empty one
+ * would drop the paired TVs and their certificates on the next save.
+ */
+async function refreshConfig() {
+  try {
+    config = normalizeConfig(await gladys.getConfig());
+  } catch (err) {
+    logger.warn(`[AndroidTV] Could not refresh the configuration, using the last known one: ${err.message}`);
+  }
+  return config;
+}
+
 // Listen for config updates
-gladys.onConfigUpdated((newConfig) => {
-  logger.info('Configuration updated');
+gladys.onConfigUpdated(async (newConfig) => {
+  logger.info('[AndroidTV] Configuration updated');
   config = normalizeConfig(newConfig);
-  initTVConnections();
+  try {
+    await initTVConnections();
+  } catch (err) {
+    logger.error(`[AndroidTV] Failed to apply the new configuration: ${err.message}`);
+  }
 });
 
 // Handle scan requests
 gladys.onScanRequest(async () => {
-  logger.info('onScanRequest -> publishing discovered Android TV devices');
+  logger.info('[AndroidTV] Scan requested, publishing discovered devices');
+  await refreshConfig();
   const devices = await buildDiscoveredDevices(gladys, config);
   await gladys.publishDiscoveredDevices(devices);
 });
 
 // Handle incoming control commands from Gladys
 gladys.onSetValue(async (device, feature, value) => {
-  logger.info(`onSetValue <- ${feature.external_id} = ${value}`);
+  logger.info(`[AndroidTV] Set value <- ${feature.external_id} = ${value}`);
 
-  // Extract TV IP address from device parameters or feature external ID
-  let tvIp = device?.params?.find((p) => p.name === 'TV_IP')?.value;
-  if (!tvIp && feature?.external_id) {
-    const match = feature.external_id.match(/tv:([0-9_]+):/);
-    if (match) {
-      tvIp = match[1].replace(/_/g, '.');
-    }
-  }
-
+  const tvIp = resolveTvIp(device, feature);
   if (!tvIp) {
-    throw new Error(`Unable to determine target TV IP for feature ${feature.external_id}`);
+    throw new Error(`Unable to determine the target TV for feature ${feature.external_id}`);
   }
 
   const tvClient = clientManager.getClient(tvIp);
-
   if (!tvClient || !tvClient.isConnected) {
-    throw new Error(`Android TV at ${tvIp} is not connected. Make sure the TV is turned ON and paired.`);
+    throw new Error(`The Android TV at ${tvIp} is not connected. Make sure the TV is turned ON and paired.`);
   }
 
   const extId = feature.external_id;
 
-  // 1. Power Switch
-  if (extId.endsWith(':power')) {
-    await gladys.publishState(feature.external_id, value).catch(() => {});
-    await tvClient.sendKey('power');
-    return;
-  }
-
-  // 2. Volume control
-  if (extId.endsWith(':volume')) {
-    await gladys.publishState(feature.external_id, value).catch(() => {});
-    // Send step volume command
-    if (value > 50) {
-      await tvClient.sendKey('volume_up');
-    } else {
-      await tvClient.sendKey('volume_down');
-    }
-    return;
-  }
-
-  // 3. Mute Switch
-  if (extId.endsWith(':mute')) {
-    await gladys.publishState(feature.external_id, value).catch(() => {});
-    await tvClient.sendKey('mute');
-    return;
-  }
-
-  // 4. Remote Key Buttons
+  // 1. Remote key buttons
   if (extId.includes(':key:')) {
-    const keyName = extId.slice(extId.indexOf(':key:') + 5);
-    await tvClient.sendKey(keyName);
+    await tvClient.sendKey(extId.slice(extId.indexOf(':key:') + 5));
     return;
   }
 
-  // 5. App Launchers
+  // 2. App launchers
   if (extId.includes(':app:')) {
     const appId = extId.slice(extId.indexOf(':app:') + 5);
-    const app = SUPPORTED_APPS.find((a) => a.id === appId);
+    const app = SUPPORTED_APPS.find((supported) => supported.id === appId);
     if (!app) {
       throw new Error(`Unknown app ID: ${appId}`);
     }
     await tvClient.sendApp(app.uri || app.package);
+    return;
+  }
+
+  // 3. Power switch
+  if (extId.endsWith(':power')) {
+    await tvClient.setPower(Number(value) > 0);
+    await gladys.publishState(extId, Number(value) > 0 ? 1 : 0).catch(() => {});
+    return;
+  }
+
+  // 4. Volume control
+  if (extId.endsWith(':volume')) {
+    await tvClient.setVolumeLevel(Number(value));
+    return;
+  }
+
+  // 5. Mute switch
+  if (extId.endsWith(':mute')) {
+    await tvClient.setMute(Number(value) > 0);
+    await gladys.publishState(extId, Number(value) > 0 ? 1 : 0).catch(() => {});
     return;
   }
 
@@ -110,12 +114,42 @@ gladys.onSetValue(async (device, feature, value) => {
 const ACTIONS = ['start_pairing', 'submit_pin', 'test_connection'];
 ACTIONS.forEach((actionKey) => {
   gladys.onAction(actionKey, async (fields) => {
-    const currentConfig = normalizeConfig(await gladys.getConfig().catch(() => ({})));
-    return handleActionExecution(gladys, actionKey, fields, clientManager, currentConfig);
+    await refreshConfig();
+    return handleActionExecution(gladys, actionKey, fields, clientManager, config);
   });
 });
 
-// Startup initialization
-const rawConfig = await gladys.getConfig().catch(() => ({}));
-config = normalizeConfig(rawConfig);
+/**
+ * Find the IP address of the TV a feature belongs to.
+ *
+ * @param {Object} device The Gladys device.
+ * @param {Object} feature The Gladys device feature.
+ * @returns {string|undefined} The TV IP address.
+ */
+function resolveTvIp(device, feature) {
+  const fromParams = device?.params?.find((param) => param.name === 'TV_IP')?.value;
+  if (fromParams) {
+    return fromParams;
+  }
+  // Fallback: the IP is part of the external id, with dots replaced by
+  // underscores (ext:<selector>:tv:192_168_1_50:power).
+  const match = feature?.external_id?.match(/:tv:([0-9_]+):/);
+  return match ? match[1].replace(/_/g, '.') : undefined;
+}
+
+// -----------------------------------------------------------------------------
+// Startup
+// -----------------------------------------------------------------------------
+
+// SIGTERM/SIGINT from the Gladys supervisor: close the TV sockets, then exit.
+gladys.handleShutdown(() => clientManager.disconnectAll());
+
+// Opens the WebSocket, authenticates and resynchronizes gladys.config. Without
+// it the integration receives nothing — no action, no scan, no command — and
+// the process exits as soon as this module finishes running.
+await gladys.connect();
+
+config = normalizeConfig(gladys.config);
 await initTVConnections();
+
+logger.info('[AndroidTV] Integration started');
