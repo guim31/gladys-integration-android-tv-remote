@@ -142,3 +142,49 @@ test('AndroidTVClient - disconnect should stop the reconnection loop of the libr
   assert.equal(client.remote, null);
   assert.equal(client.isConnected, false);
 });
+
+/**
+ * Build a client with a fake pairing session, recording the submitted code.
+ *
+ * @param {boolean} accepted What the library reports for the code checksum.
+ * @returns {Object} The client and a getter for the code it sent.
+ */
+function createPairingClient(accepted) {
+  const client = new AndroidTVClient({ tv_ip: '192.168.1.50' });
+  const state = { sent: undefined };
+  client.remote = {
+    pairingManager: { removeAllListeners: () => {} },
+    remoteManager: null,
+    sendCode: (code) => {
+      state.sent = code;
+      return accepted;
+    },
+    on: () => {},
+    removeListener: () => {},
+    removeAllListeners: () => {},
+  };
+  return { client, state };
+}
+
+test('AndroidTVClient - submitPin should fail fast on a code the TV rejects', async () => {
+  const { client } = createPairingClient(false);
+
+  // The library validates the checksum locally and drops the socket: waiting
+  // for an event that will never come would cost the user the full timeout.
+  await assert.rejects(() => client.submitPin('B4B0C7'), /rejected this PIN code/);
+  assert.equal(client.remote, null, 'the dead session must be dropped');
+});
+
+test('AndroidTVClient - submitPin should normalize the typed PIN', async () => {
+  const { client, state } = createPairingClient(false);
+
+  await assert.rejects(() => client.submitPin(' b4-b0 c7 '));
+  assert.equal(state.sent, 'B4B0C7');
+});
+
+test('AndroidTVClient - submitPin should reject an obviously truncated PIN', async () => {
+  const { client, state } = createPairingClient(false);
+
+  await assert.rejects(() => client.submitPin('B4'), /too short/);
+  assert.equal(state.sent, undefined);
+});

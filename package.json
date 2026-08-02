@@ -1,6 +1,6 @@
 {
   "name": "gladys-integration-android-tv-remote",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "Gladys Assistant external integration for Android TV and Google TV via Remote v2 protocol (TLS 6466/6467).",
   "type": "module",

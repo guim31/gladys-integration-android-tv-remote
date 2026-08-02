@@ -156,9 +156,17 @@ export class AndroidTVClient {
       );
     }
 
-    const cleanPin = String(pin ?? '').trim();
+    // The TV displays hexadecimal characters; they get pasted with spaces or
+    // dashes often enough to be worth normalizing.
+    const cleanPin = String(pin ?? '')
+      .replace(/[^0-9a-fA-F]/g, '')
+      .toUpperCase();
+
     if (!cleanPin) {
       throw new Error('PIN code is required.');
+    }
+    if (cleanPin.length < 4) {
+      throw new Error(`The PIN code looks too short ("${cleanPin}"). Type the code displayed on the TV screen.`);
     }
 
     logger.info(`[AndroidTV] Submitting PIN code to TV at ${this.ip}...`);
@@ -205,7 +213,21 @@ export class AndroidTVClient {
       this.remote.on('unpaired', onUnpaired);
 
       try {
-        this.remote.sendCode(cleanPin);
+        // The library checks the checksum carried by the first two characters
+        // before writing anything: on a mismatch it returns false and drops the
+        // socket, and nothing is ever emitted afterwards. Without this check a
+        // simple typo costs the user the whole timeout and reports it as a
+        // network problem.
+        if (this.remote.sendCode(cleanPin) === false) {
+          finish(
+            reject,
+            new Error(
+              'The TV rejected this PIN code. Check the code currently displayed on the screen — if it is gone, run step 1 again to get a fresh one.',
+            ),
+          );
+          // The socket is dead: a retry on this session could only fail.
+          this.disconnect();
+        }
       } catch (err) {
         finish(reject, new Error(`Failed to send PIN code: ${err.message}`));
       }

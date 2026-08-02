@@ -158,49 +158,58 @@ export async function buildDiscoveredDevices(gladys, config) {
 export async function handleActionExecution(gladys, actionKey, fields, clientManager, currentConfig) {
   logger.info(`[AndroidTV] Running action: ${actionKey}`);
 
-  const targetIp =
-    trim(fields?.tv_ip) || trim(fields?.target_tv_ip) || currentConfig.tv_ip || currentConfig.tvs?.[0]?.ip;
-
-  if (!targetIp) {
-    throw new Error('Please fill in the IP address of your Android TV before running this action.');
-  }
-
-  const targetName = trim(fields?.tv_name) || currentConfig.tv_name || `Android TV (${targetIp})`;
-  const existingTvConfig = currentConfig.tvs?.find((tv) => tv.ip === targetIp) || {
-    ip: targetIp,
-    name: targetName,
-    certificate_key: '',
-    certificate_cert: '',
-  };
-
-  const client = clientManager.getOrCreateClient(existingTvConfig);
-
   if (actionKey === 'start_pairing') {
+    const tvIp = trim(fields?.tv_ip);
+    if (!tvIp) {
+      throw new Error('Fill in the IP address of the TV you want to pair.');
+    }
+
+    const tvName = trim(fields?.tv_name) || `Android TV (${tvIp})`;
+    const client = clientManager.getOrCreateClient(
+      currentConfig.tvs?.find((tv) => tv.ip === tvIp) || {
+        ip: tvIp,
+        name: tvName,
+        certificate_key: '',
+        certificate_cert: '',
+      },
+    );
+
     await client.startPairing();
+    clientManager.setPairingTarget(tvIp, tvName);
+
     return {
-      en: `Pairing started for ${targetIp}. A PIN code is displayed on your TV: type it in the "Pairing Code (PIN)" field, save, then click "Confirm PIN Code & Add TV".`,
-      fr: `Appairage démarré pour ${targetIp}. Un code PIN s'affiche sur votre TV : saisissez-le dans le champ « Code d'association (PIN) », enregistrez, puis cliquez sur « Valider le code PIN & Ajouter la TV ».`,
+      en: `A PIN code is now displayed on the screen of the TV at ${tvIp}. Type it in step 2 below and run it right away — the code expires.`,
+      fr: `Un code PIN s'affiche maintenant sur l'écran de la TV ${tvIp}. Saisissez-le dans l'étape 2 ci-dessous et exécutez-la dans la foulée — le code expire.`,
     };
   }
 
   if (actionKey === 'submit_pin') {
-    const pin = trim(fields?.pairing_pin) || currentConfig.pairing_pin;
+    const pin = trim(fields?.pairing_pin);
     if (!pin) {
-      throw new Error('The pairing PIN code is required. Fill in the "Pairing Code (PIN)" field and save first.');
+      throw new Error('Type the PIN code displayed on the TV screen.');
     }
 
+    // The session opened by step 1 is the one holding the PIN exchange: the
+    // address is remembered from that step, so it is never asked twice.
+    const target = clientManager.getPairingTarget();
+    if (!target) {
+      throw new Error(
+        'No pairing sequence is running. Run step 1 first, then confirm the PIN code it displays on the TV.',
+      );
+    }
+
+    const { client, ip: tvIp, name: tvName } = target;
     const result = await client.submitPin(pin);
 
     if (!result?.certificates?.key || !result?.certificates?.cert) {
-      throw new Error('The TV accepted the PIN code but returned no certificate. Please restart the pairing sequence.');
+      throw new Error('The TV accepted the PIN code but returned no certificate. Please run step 1 again.');
     }
 
     const updatedTvs = [...(currentConfig.tvs || [])];
-    const tvIndex = updatedTvs.findIndex((tv) => tv.ip === targetIp);
+    const tvIndex = updatedTvs.findIndex((tv) => tv.ip === tvIp);
     const updatedTvEntry = {
-      ...existingTvConfig,
-      ip: targetIp,
-      name: targetName,
+      ip: tvIp,
+      name: tvName,
       certificate_key: result.certificates.key,
       certificate_cert: result.certificates.cert,
     };
@@ -214,36 +223,36 @@ export async function handleActionExecution(gladys, actionKey, fields, clientMan
     // setConfig(), not saveConfig(): that is the SDK method name.
     await gladys.setConfig({ tvs: updatedTvs });
 
-    // The PIN is single use; leaving it in the form only invites a retry that
-    // cannot work. Best effort: losing the certificates over this would be far
-    // worse than a stale field.
-    await gladys.setConfig({ pairing_pin: '' }).catch((err) => {
-      logger.warn(`[AndroidTV] Could not clear the PIN field: ${err.message}`);
-    });
-
     // submitPin() resolves on the 'ready' event, so the session is already
     // live: only the status shown in the UI needs a refresh.
     await clientManager.refreshConnectionStatus();
 
     return {
-      en: `Pairing successful for ${targetIp}. Now run a device scan to add the TV to your Gladys devices.`,
-      fr: `Appairage réussi pour ${targetIp}. Lancez maintenant une recherche d'appareils pour ajouter la TV à vos appareils Gladys.`,
+      en: `${tvName} is paired. Now run a device scan (Discovery tab) to add it to your Gladys devices.`,
+      fr: `${tvName} est appairée. Lancez maintenant une recherche d'appareils (onglet Découverte) pour l'ajouter à vos appareils Gladys.`,
     };
   }
 
   if (actionKey === 'test_connection') {
-    if (!client.isPaired()) {
-      throw new Error(`The TV at ${targetIp} is not paired yet. Run the pairing sequence first.`);
+    const tvIp = trim(fields?.tv_ip) || currentConfig.tvs?.[0]?.ip;
+    if (!tvIp) {
+      throw new Error('No TV is paired yet. Run step 1 and step 2 first.');
     }
 
+    const tvConfig = currentConfig.tvs?.find((tv) => tv.ip === tvIp);
+    if (!tvConfig || !tvConfig.certificate_key || !tvConfig.certificate_cert) {
+      throw new Error(`The TV at ${tvIp} is not paired yet. Run step 1 and step 2 for this address first.`);
+    }
+
+    const client = clientManager.getOrCreateClient(tvConfig);
     if (!client.isConnected) {
       await client.connect();
     }
     await clientManager.refreshConnectionStatus();
 
     return {
-      en: `Successfully connected to the Android TV at ${targetIp}.`,
-      fr: `Connexion réussie à l'Android TV sur ${targetIp}.`,
+      en: `Successfully connected to ${tvConfig.name} (${tvIp}).`,
+      fr: `Connexion réussie à ${tvConfig.name} (${tvIp}).`,
     };
   }
 
