@@ -54,6 +54,12 @@ docker run -d \
   ghcr.io/guim31/gladys-integration-android-tv-remote:1.0.3
 ```
 
+| Tag       | Contenu                                                      |
+| --------- | ------------------------------------------------------------ |
+| `:1.0.3`  | Version figée — **recommandé**                               |
+| `:latest` | Dernier état stable de la branche `main`                     |
+| `:dev`    | Dernier build de la branche `dev` — pour tester, peut casser |
+
 ---
 
 ## 🧪 Tests locaux
@@ -69,6 +75,14 @@ npm test
 npm run lint
 npm run format:check
 ```
+
+---
+
+## 🤝 Contribuer
+
+Le dépôt suit un modèle à deux branches : `dev` (intégration) et `main`
+(production). Les détails — nommage des branches, convention de commits,
+processus de publication — sont dans [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
