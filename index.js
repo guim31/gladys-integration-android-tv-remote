@@ -63,10 +63,7 @@ gladys.onSetValue(async (device, feature, value) => {
     throw new Error(`Unable to determine the target TV for feature ${feature.external_id}`);
   }
 
-  const tvClient = clientManager.getClient(tvIp);
-  if (!tvClient || !tvClient.isConnected) {
-    throw new Error(`The Android TV at ${tvIp} is not connected. Make sure the TV is turned ON and paired.`);
-  }
+  const tvClient = await ensureClientConnected(tvIp);
 
   const extId = feature.external_id;
 
@@ -87,10 +84,11 @@ gladys.onSetValue(async (device, feature, value) => {
     return;
   }
 
-  // 3. Power switch
+  // 3. Power switch. The resulting state is not published here: KEYCODE_POWER
+  // is a toggle, so the TV itself is the only source of truth — its 'powered'
+  // report is what updates Gladys.
   if (extId.endsWith(':power')) {
     await tvClient.setPower(Number(value) > 0);
-    await gladys.publishState(extId, Number(value) > 0 ? 1 : 0).catch(() => {});
     return;
   }
 
@@ -100,24 +98,60 @@ gladys.onSetValue(async (device, feature, value) => {
     return;
   }
 
-  // 5. Mute switch
+  // 5. Mute switch. Same as power: the state published in Gladys comes from
+  // the volume report of the TV, not from the request.
   if (extId.endsWith(':mute')) {
     await tvClient.setMute(Number(value) > 0);
-    await gladys.publishState(extId, Number(value) > 0 ? 1 : 0).catch(() => {});
     return;
   }
 
   throw new Error(`Unsupported feature external_id: ${extId}`);
 });
 
-// Handle UI actions (start_pairing, submit_pin, test_connection)
-const ACTIONS = ['start_pairing', 'submit_pin', 'test_connection'];
+// Handle UI actions (start_pairing, submit_pin, test_connection, remove_tv)
+const ACTIONS = ['start_pairing', 'submit_pin', 'test_connection', 'remove_tv'];
 ACTIONS.forEach((actionKey) => {
   gladys.onAction(actionKey, async (fields) => {
     await refreshConfig();
     return handleActionExecution(gladys, actionKey, fields, clientManager, config);
   });
 });
+
+/**
+ * Get a live client for a TV, reconnecting on the fly when needed.
+ *
+ * A TV in network standby still accepts Remote v2 connections: reconnecting
+ * here is what makes "turn on" work on a TV that dropped its session. Only a
+ * TV that is fully powered off (or unplugged) stays unreachable.
+ *
+ * @param {string} tvIp The TV IP address.
+ * @returns {Promise<Object>} A connected AndroidTVClient.
+ */
+async function ensureClientConnected(tvIp) {
+  const existing = clientManager.getClient(tvIp);
+  if (existing?.isConnected) {
+    return existing;
+  }
+
+  const tvConfig = config.tvs?.find((tv) => tv.ip === tvIp);
+  if (!tvConfig || !tvConfig.certificate_key || !tvConfig.certificate_cert) {
+    throw new Error(`The Android TV at ${tvIp} is not paired. Run the pairing sequence first.`);
+  }
+
+  const client = clientManager.getOrCreateClient(tvConfig);
+  logger.info(`[AndroidTV] No live session with ${tvIp}, trying to reconnect...`);
+  try {
+    await client.connect();
+  } catch (err) {
+    throw new Error(
+      `The Android TV at ${tvIp} is not reachable (${err.message}). ` +
+        'Remote v2 only reaches a TV that is ON or in network standby: a TV that is fully powered off ' +
+        'must be turned back on with its physical remote or HDMI-CEC first.',
+      { cause: err },
+    );
+  }
+  return client;
+}
 
 /**
  * Find the IP address of the TV a feature belongs to.

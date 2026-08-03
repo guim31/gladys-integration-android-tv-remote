@@ -132,6 +132,10 @@ function createManagerMock(client) {
       return this.pairingTarget ? { ...this.pairingTarget, client } : undefined;
     },
     refreshConnectionStatus: async () => {},
+    removedClients: [],
+    removeClient(ip) {
+      this.removedClients.push(ip);
+    },
   };
 }
 
@@ -221,6 +225,38 @@ test('handleActionExecution - submit_pin should require a PIN', async () => {
     () => handleActionExecution(mockGladys, 'submit_pin', {}, manager, { tvs: [] }),
     /PIN code displayed on the TV/,
   );
+});
+
+test('handleActionExecution - remove_tv should drop the TV, its certificates and its client', async () => {
+  const saved = [];
+  const gladys = { ...mockGladys, setConfig: async (partial) => saved.push(partial) };
+  const manager = createManagerMock({});
+  const config = {
+    tvs: [
+      { ip: '192.168.1.50', name: 'TV Salon', certificate_key: 'K1', certificate_cert: 'C1' },
+      { ip: '192.168.1.51', name: 'TV Chambre', certificate_key: 'K2', certificate_cert: 'C2' },
+    ],
+  };
+
+  const result = await handleActionExecution(gladys, 'remove_tv', { tv_ip: '192.168.1.50' }, manager, config);
+
+  assert.equal(saved[0].tvs.length, 1);
+  assert.equal(saved[0].tvs[0].ip, '192.168.1.51');
+  assert.deepEqual(manager.removedClients, ['192.168.1.50']);
+  assert.ok(result.fr.includes('TV Salon'));
+});
+
+test('handleActionExecution - remove_tv should refuse an unknown TV', async () => {
+  const manager = createManagerMock({});
+  await assert.rejects(
+    () => handleActionExecution(mockGladys, 'remove_tv', { tv_ip: '192.168.1.99' }, manager, { tvs: [] }),
+    /No TV with the address/,
+  );
+});
+
+test('handleActionExecution - remove_tv should require an IP address', async () => {
+  const manager = createManagerMock({});
+  await assert.rejects(() => handleActionExecution(mockGladys, 'remove_tv', {}, manager, { tvs: [] }), /IP address/);
 });
 
 test('handleActionExecution - test_connection should refuse an unpaired TV', async () => {
