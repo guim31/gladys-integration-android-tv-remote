@@ -6,9 +6,16 @@ on:
       - 'v*'
     branches:
       - main
+      - dev
 
 jobs:
+  # Aucune image n'est publiée si le lint, le formatage ou les tests échouent.
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
   build:
+    needs: ci
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -39,6 +46,8 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{raw}}
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') }}
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
+            type=sha,prefix=dev-,format=short,enable=${{ github.ref == 'refs/heads/dev' }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -48,3 +57,5 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
