@@ -76,30 +76,34 @@ export class AndroidTVClientManager {
   /**
    * Initialize and connect client instances for all configured TVs.
    *
+   * The connections run in parallel: each attempt can wait its full timeout,
+   * so connecting one TV after the other would make every unreachable TV delay
+   * the startup of all the following ones.
+   *
    * @param {Array<Object>} tvs Array of TV configuration objects.
    */
   async connectAll(tvs = []) {
     this.disconnectAll();
 
-    for (const tv of tvs) {
-      if (!tv.ip) {
-        continue;
-      }
+    await Promise.all(
+      tvs
+        .filter((tv) => tv.ip)
+        .map(async (tv) => {
+          const client = this.getOrCreateClient(tv);
 
-      const client = this.getOrCreateClient(tv);
+          if (!client.isPaired()) {
+            logger.info(`[AndroidTV] The TV at ${tv.ip} is not paired yet, pairing required.`);
+            return;
+          }
 
-      if (!client.isPaired()) {
-        logger.info(`[AndroidTV] The TV at ${tv.ip} is not paired yet, pairing required.`);
-        continue;
-      }
-
-      try {
-        await client.connect();
-        logger.info(`[AndroidTV] Connected to ${tv.name || tv.ip} (${tv.ip})`);
-      } catch (err) {
-        logger.error(`[AndroidTV] Failed to connect to the TV at ${tv.ip}: ${err.message}`);
-      }
-    }
+          try {
+            await client.connect();
+            logger.info(`[AndroidTV] Connected to ${tv.name || tv.ip} (${tv.ip})`);
+          } catch (err) {
+            logger.error(`[AndroidTV] Failed to connect to the TV at ${tv.ip}: ${err.message}`);
+          }
+        }),
+    );
 
     await this.refreshConnectionStatus();
   }
@@ -136,6 +140,29 @@ export class AndroidTVClientManager {
     }
 
     await this.gladys.setConnectionStatus(false, message).catch(() => {});
+  }
+
+  /**
+   * Forget a TV for good: close its session and drop its client.
+   *
+   * Unlike disconnectAll(), a pairing in progress is closed too — removing a
+   * TV in the middle of its own pairing means the user gave up on it.
+   *
+   * @param {string} ip TV IP address.
+   */
+  removeClient(ip) {
+    const client = this.clients.get(ip);
+    if (client) {
+      try {
+        client.disconnect();
+      } catch (err) {
+        logger.warn(`[AndroidTV] Error disconnecting client ${ip}:`, err.message);
+      }
+      this.clients.delete(ip);
+    }
+    if (this.pairingTarget?.ip === ip) {
+      this.pairingTarget = null;
+    }
   }
 
   /**
