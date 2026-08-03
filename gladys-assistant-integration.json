@@ -6,8 +6,8 @@
     "en": "Gladys Assistant integration for Android TV and Google TV using Remote v2 protocol.",
     "fr": "Intégration Gladys Assistant pour Android TV et Google TV via le protocole Remote v2."
   },
-  "version": "1.0.3",
-  "docker_image": "ghcr.io/guim31/gladys-integration-android-tv-remote:1.0.3",
+  "version": "1.0.4",
+  "docker_image": "ghcr.io/guim31/gladys-integration-android-tv-remote:1.0.4",
   "gladys_version": ">=4.62.0",
   "cover_image": "https://raw.githubusercontent.com/guim31/gladys-integration-android-tv-remote/main/cover.png",
   "transports": ["local"],
@@ -26,8 +26,8 @@
       "type": "boolean",
       "label": { "en": "Enable App Shortcuts", "fr": "Activer les raccourcis d'applications" },
       "description": {
-        "en": "Create individual features to launch apps (Netflix, YouTube, Prime Video, Disney+, Spotify, Plex, Arte, Molotov, myCANAL). Applies to the TVs added after the change.",
-        "fr": "Créer des fonctionnalités dédiées pour lancer des applications (Netflix, YouTube, Prime Video, Disney+, Spotify, Plex, Arte, Molotov, myCANAL). S'applique aux TV ajoutées après la modification."
+        "en": "Create individual features to launch apps (Netflix, YouTube, Prime Video, Disney+, Spotify, Plex, Arte, Molotov, myCANAL). Applies to every paired TV on the next device scan.",
+        "fr": "Créer des fonctionnalités dédiées pour lancer des applications (Netflix, YouTube, Prime Video, Disney+, Spotify, Plex, Arte, Molotov, myCANAL). S'applique à toutes les TV appairées à la prochaine recherche d'appareils."
       },
       "required": false,
       "default": true
@@ -79,6 +79,23 @@
           "description": {
             "en": "The 6-character code displayed on the TV screen after step 1. Type it here and run the action right away — the code is single use.",
             "fr": "Le code à 6 caractères affiché sur l'écran de la TV après l'étape 1. Saisissez-le ici et exécutez l'action dans la foulée — le code est à usage unique."
+          },
+          "required": true
+        }
+      ]
+    },
+    {
+      "key": "remove_tv",
+      "label": { "en": "Remove a paired TV", "fr": "Retirer une TV appairée" },
+      "timeout_seconds": 30,
+      "fields": [
+        {
+          "key": "tv_ip",
+          "type": "string",
+          "label": { "en": "TV IP address", "fr": "Adresse IP de la TV" },
+          "description": {
+            "en": "Local IP address of the TV to remove. Its certificates are deleted; pair it again to get it back.",
+            "fr": "Adresse IP locale de la TV à retirer. Ses certificats sont supprimés ; refaites l'appairage pour la retrouver."
           },
           "required": true
         }

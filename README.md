@@ -29,13 +29,17 @@ Tout ce que vous avez à saisir se trouve **dans les actions elles-mêmes** : ri
 
 Pour appairer une **seconde TV**, reprenez à l'étape 1 avec sa propre adresse IP : les TV déjà appairées sont conservées.
 
+Pour **retirer une TV**, utilisez l'action « Retirer une TV appairée » avec son adresse IP : ses certificats sont supprimés (l'appareil Gladys correspondant, lui, se supprime depuis sa propre page).
+
 > ℹ️ Seules les TV **déjà appairées** apparaissent lors de la recherche. Une TV sans certificat ne pourrait recevoir aucune commande.
 
 ### Bon à savoir
 
+- **Réservez l'adresse IP de la TV dans votre box/routeur (réservation DHCP)** : l'adresse IP sert d'identifiant à l'appareil dans Gladys. Si elle change, l'appareil existant devient injoignable et il faut ré-appairer la TV puis relancer une recherche.
 - Les touches **Marche/Arrêt** et **Sourdine** du protocole Remote v2 sont des **bascules** : l'intégration ne les envoie que si l'état connu de la TV diffère de l'état demandé.
 - Le protocole n'a pas de commande de volume absolue : le niveau demandé est atteint en répétant les touches volume +/−, sur l'échelle de volume annoncée par la TV.
-- Si la TV est éteinte au démarrage de l'intégration, la connexion est retentée automatiquement : elle se rétablit dès que la TV est rallumée.
+- Si la TV est éteinte au démarrage de l'intégration, la connexion est retentée automatiquement, y compris au moment où une commande arrive : elle se rétablit dès que la TV est joignable.
+- **Allumer la TV à distance** ne fonctionne que si elle est en **veille réseau** (le port Remote v2 reste ouvert en veille sur la plupart des modèles). Une TV totalement hors tension doit être rallumée avec sa télécommande physique ou via HDMI-CEC.
 
 ---
 
@@ -51,12 +55,12 @@ docker run -d \
   -e GLADYS_HOST_API_URL=http://localhost:8080 \
   -e GLADYS_INTEGRATION_TOKEN=your_token_here \
   -e GLADYS_INTEGRATION_SELECTOR=android-tv-remote \
-  ghcr.io/guim31/gladys-integration-android-tv-remote:1.0.3
+  ghcr.io/guim31/gladys-integration-android-tv-remote:1.0.4
 ```
 
 | Tag       | Contenu                                                      |
 | --------- | ------------------------------------------------------------ |
-| `:1.0.3`  | Version figée — **recommandé**                               |
+| `:1.0.4`  | Version figée — **recommandé**                               |
 | `:latest` | Dernier état stable de la branche `main`                     |
 | `:dev`    | Dernier build de la branche `dev` — pour tester, peut casser |
 

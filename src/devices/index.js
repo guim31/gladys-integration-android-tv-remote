@@ -143,7 +143,7 @@ export async function buildDiscoveredDevices(gladys, config) {
 }
 
 /**
- * Handle a UI action (start_pairing, submit_pin, test_connection).
+ * Handle a UI action (start_pairing, submit_pin, test_connection, remove_tv).
  *
  * The resolved value is acked by the SDK as `data.message` and shown under the
  * button, so it must be a string or a multi-language `{ en, fr }` object.
@@ -230,6 +230,28 @@ export async function handleActionExecution(gladys, actionKey, fields, clientMan
     return {
       en: `${tvName} is paired. Now run a device scan (Discovery tab) to add it to your Gladys devices.`,
       fr: `${tvName} est appairée. Lancez maintenant une recherche d'appareils (onglet Découverte) pour l'ajouter à vos appareils Gladys.`,
+    };
+  }
+
+  if (actionKey === 'remove_tv') {
+    const tvIp = trim(fields?.tv_ip);
+    if (!tvIp) {
+      throw new Error('Fill in the IP address of the TV you want to remove.');
+    }
+
+    const tvs = currentConfig.tvs || [];
+    const tvConfig = tvs.find((tv) => tv.ip === tvIp);
+    if (!tvConfig) {
+      throw new Error(`No TV with the address ${tvIp} is configured.`);
+    }
+
+    await gladys.setConfig({ tvs: tvs.filter((tv) => tv.ip !== tvIp) });
+    clientManager.removeClient(tvIp);
+    await clientManager.refreshConnectionStatus();
+
+    return {
+      en: `${tvConfig.name} (${tvIp}) has been removed, along with its certificates. If it was added as a device, delete the device from its dashboard page.`,
+      fr: `${tvConfig.name} (${tvIp}) a été retirée, ainsi que ses certificats. Si elle avait été ajoutée comme appareil, supprimez l'appareil depuis sa page.`,
     };
   }
 

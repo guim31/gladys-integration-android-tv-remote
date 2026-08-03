@@ -116,6 +116,34 @@ test('AndroidTVClientManager - a configuration save must not kill a pairing in p
   assert.equal(manager.getPairingTarget().name, 'Salon TV');
 });
 
+test('AndroidTVClientManager - removeClient should forget the TV, even mid-pairing', () => {
+  const manager = new AndroidTVClientManager(createMockGladys());
+
+  const client = manager.getOrCreateClient({ ip: '192.168.1.50' });
+  client.isPairing = true;
+  manager.setPairingTarget('192.168.1.50', 'Salon TV');
+
+  // Removing a TV is an explicit user decision: unlike disconnectAll(), it
+  // must also close a pairing in progress and forget the pairing target.
+  manager.removeClient('192.168.1.50');
+
+  assert.equal(manager.getClient('192.168.1.50'), undefined);
+  assert.equal(manager.getPairingTarget(), undefined);
+  assert.equal(client.isPairing, false);
+});
+
+test('AndroidTVClientManager - removeClient should leave the other TVs alone', () => {
+  const manager = new AndroidTVClientManager(createMockGladys());
+
+  const kept = manager.getOrCreateClient({ ip: '192.168.1.51' });
+  manager.getOrCreateClient({ ip: '192.168.1.50' });
+
+  manager.removeClient('192.168.1.50');
+  manager.removeClient('192.168.1.222'); // unknown IP: no effect, no crash
+
+  assert.equal(manager.getClient('192.168.1.51'), kept);
+});
+
 test('AndroidTVClientManager - getPairingTarget should ignore a closed session', () => {
   const manager = new AndroidTVClientManager(createMockGladys());
 
