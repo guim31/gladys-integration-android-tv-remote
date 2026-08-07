@@ -66,6 +66,56 @@ docker run -d \
 
 ---
 
+## 🛠️ Dépannage
+
+Premier réflexe : lire les logs du conteneur (`docker logs gladys-ext-...`). Les lignes `[gladys-sdk]` concernent la liaison avec Gladys, les lignes `[AndroidTV]` concernent les TV.
+
+### « L'action a échoué. Vérifiez que l'intégration est démarrée » / le toggle retombe sur « arrêté »
+
+Si les logs montrent en boucle :
+
+```
+[ERROR] [gladys-sdk] websocket error on ws://gladys:8082: connect ETIMEDOUT ...
+[WARN]  [gladys-sdk] not connected to Gladys (ws://gladys:8082), retrying in ... ms
+```
+
+le conteneur de l'intégration n'arrive pas à joindre Gladys : il ne s'est jamais enregistré, donc Gladys le considère comme non démarré. `ETIMEDOUT` (et non « connection refused ») signifie que les paquets sont jetés en route — c'est un problème de réseau **entre les deux conteneurs**, pas un problème de port. Le port peut très bien être en écoute et joignable depuis l'hôte tout en restant inaccessible depuis le réseau où vit le conteneur de l'intégration.
+
+Dans l'ordre :
+
+1. **Vérifiez le mode réseau de Gladys.** L'installation officielle fait tourner le conteneur Gladys en `network_mode: host` : c'est la configuration attendue pour les intégrations externes. Si votre conteneur Gladys a une IP de bridge (ex : `172.30.0.2`) et un mapping de port (ex : `8082:8082`), il tourne en bridge — repassez-le en réseau host.
+2. **Comparez les réseaux des deux conteneurs :**
+
+   ```bash
+   docker inspect -f '{{json .NetworkSettings.Networks}}' <conteneur-gladys>
+   docker inspect -f '{{json .NetworkSettings.Networks}}' <conteneur-integration>
+   ```
+
+   Docker isole les bridges entre eux : deux conteneurs qui ne partagent aucun réseau ne peuvent pas communiquer, le trafic est jeté silencieusement (d'où le timeout).
+
+3. **Testez depuis le conteneur de l'intégration :**
+
+   ```bash
+   docker exec <conteneur-integration> wget -qO- --timeout=5 http://gladys:8082 || echo KO
+   ```
+
+4. **Vérifiez le pare-feu de l'hôte ou du NAS** (ufw, firewalld…) : certains bloquent le trafic inter-conteneurs.
+
+Dès que le réseau est réparé, l'intégration se reconnecte toute seule (le SDK réessaie indéfiniment, avec un délai plafonné) : inutile de redémarrer le conteneur.
+
+### Une commande échoue avec « The Android TV at ... is not reachable »
+
+La TV est totalement hors tension, a changé d'adresse IP, ou n'est pas sur le même réseau que Gladys. Rappels :
+
+- L'allumage à distance ne fonctionne que si la TV est en **veille réseau** (voir [Bon à savoir](#bon-à-savoir)).
+- Si l'adresse IP de la TV a changé, l'appareil Gladys ne la retrouvera pas : mettez une **réservation DHCP** en place, puis ré-appairez si nécessaire.
+
+### « The TV refused the pairing » / « rejected the stored certificate »
+
+La TV a révoqué le certificat de l'intégration (réinitialisation d'usine, suppression manuelle dans les paramètres de la TV…). Relancez la séquence d'appairage (étapes 1 et 2) pour cette adresse IP : le nouveau certificat remplace l'ancien.
+
+---
+
 ## 🧪 Tests locaux
 
 ```bash
