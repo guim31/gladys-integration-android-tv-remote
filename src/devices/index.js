@@ -268,7 +268,14 @@ export async function handleActionExecution(gladys, actionKey, fields, clientMan
 
     const client = clientManager.getOrCreateClient(tvConfig);
     if (!client.isConnected) {
-      await client.connect();
+      try {
+        await client.connect();
+      } catch (err) {
+        // The user gets the error right away; the background retries will
+        // pick the TV up when it becomes reachable again.
+        clientManager.scheduleReconnect(tvIp);
+        throw err;
+      }
     }
     await clientManager.refreshConnectionStatus();
 

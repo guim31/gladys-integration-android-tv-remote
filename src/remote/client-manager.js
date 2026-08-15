@@ -1,6 +1,12 @@
 import { logger } from '@gladysassistant/integration-sdk';
 import { AndroidTVClient } from './android-tv-client.js';
 
+// A TV that is powered off stays unreachable for hours: the retry delay
+// doubles on every failed attempt, from 5 seconds up to 2 minutes, and resets
+// as soon as a connection succeeds.
+export const RECONNECT_INITIAL_DELAY_MS = 5 * 1000;
+export const RECONNECT_MAX_DELAY_MS = 2 * 60 * 1000;
+
 export class AndroidTVClientManager {
   constructor(gladys) {
     this.gladys = gladys;
@@ -8,6 +14,9 @@ export class AndroidTVClientManager {
     // TV going through the pairing sequence, remembered between step 1 and
     // step 2 so the PIN action does not have to ask for the address again.
     this.pairingTarget = null;
+    // Pending reconnection timer and current retry delay, per TV IP.
+    this.reconnectTimers = new Map();
+    this.reconnectDelays = new Map();
   }
 
   /**
@@ -100,7 +109,11 @@ export class AndroidTVClientManager {
             await client.connect();
             logger.info(`[AndroidTV] Connected to ${tv.name || tv.ip} (${tv.ip})`);
           } catch (err) {
-            logger.error(`[AndroidTV] Failed to connect to the TV at ${tv.ip}: ${err.message}`);
+            logger.warn(
+              `[AndroidTV] Failed to connect to the TV at ${tv.ip}: ${err.message} ` +
+                'Retrying in the background — it will be picked up when it becomes reachable.',
+            );
+            this.scheduleReconnect(tv.ip);
           }
         }),
     );
@@ -143,6 +156,87 @@ export class AndroidTVClientManager {
   }
 
   /**
+   * Schedule a reconnection attempt to a TV, with an exponential backoff.
+   *
+   * The library used to retry on its own every second, forever: a TV powered
+   * off for the night would flood the logs and hammer the network. Each
+   * attempt is now a single connection try, spaced further and further apart.
+   *
+   * @param {string} ip TV IP address.
+   */
+  scheduleReconnect(ip) {
+    if (this.reconnectTimers.has(ip) || !this._isReconnectable(ip)) {
+      return;
+    }
+
+    const delayMs = this.reconnectDelays.get(ip) ?? RECONNECT_INITIAL_DELAY_MS;
+    this.reconnectDelays.set(ip, Math.min(delayMs * 2, RECONNECT_MAX_DELAY_MS));
+    logger.debug(`[AndroidTV] Next connection attempt to ${ip} in ${Math.round(delayMs / 1000)}s.`);
+
+    const timer = setTimeout(() => {
+      this.reconnectTimers.delete(ip);
+      this._attemptReconnect(ip);
+    }, delayMs);
+    // Never keep the process alive just for a retry timer.
+    if (typeof timer.unref === 'function') {
+      timer.unref();
+    }
+    this.reconnectTimers.set(ip, timer);
+  }
+
+  /**
+   * Run one scheduled reconnection attempt.
+   *
+   * Failures only reschedule quietly: the first failure was already reported,
+   * repeating it every attempt is exactly the log flood the backoff avoids.
+   *
+   * @param {string} ip TV IP address.
+   */
+  async _attemptReconnect(ip) {
+    if (!this._isReconnectable(ip)) {
+      return;
+    }
+    const client = this.clients.get(ip);
+    try {
+      await client.connect();
+      // The 'connected' listener resets the backoff and refreshes the status.
+    } catch (err) {
+      logger.debug(`[AndroidTV] The TV at ${ip} is still unreachable: ${err.message}`);
+      this.scheduleReconnect(ip);
+    }
+  }
+
+  /**
+   * Whether a scheduled reconnection makes sense for a TV right now.
+   *
+   * `client.remote` is set for the whole lifetime of a session, from the
+   * connection attempt to its close: a truthy value means an attempt is
+   * already running (or the TV is connected), so a parallel one would only
+   * tear it down.
+   *
+   * @param {string} ip TV IP address.
+   * @returns {boolean} True when a new connection attempt can be scheduled.
+   */
+  _isReconnectable(ip) {
+    const client = this.clients.get(ip);
+    return Boolean(client && client.isPaired() && !client.isConnected && !client.isPairing && !client.remote);
+  }
+
+  /**
+   * Cancel the pending reconnection of a TV and reset its backoff.
+   *
+   * @param {string} ip TV IP address.
+   */
+  _cancelReconnect(ip) {
+    const timer = this.reconnectTimers.get(ip);
+    if (timer) {
+      clearTimeout(timer);
+      this.reconnectTimers.delete(ip);
+    }
+    this.reconnectDelays.delete(ip);
+  }
+
+  /**
    * Forget a TV for good: close its session and drop its client.
    *
    * Unlike disconnectAll(), a pairing in progress is closed too — removing a
@@ -151,6 +245,7 @@ export class AndroidTVClientManager {
    * @param {string} ip TV IP address.
    */
   removeClient(ip) {
+    this._cancelReconnect(ip);
     const client = this.clients.get(ip);
     if (client) {
       try {
@@ -169,6 +264,10 @@ export class AndroidTVClientManager {
    * Disconnect all TV client instances.
    */
   disconnectAll() {
+    for (const ip of [...this.reconnectTimers.keys()]) {
+      this._cancelReconnect(ip);
+    }
+    this.reconnectDelays.clear();
     for (const [ip, client] of this.clients.entries()) {
       // Saving the configuration in the middle of a pairing must not destroy
       // the session opened by step 1: step 2 needs that very socket, and the
@@ -216,8 +315,17 @@ export class AndroidTVClientManager {
 
     // A TV switched on later, a connection dropped, a certificate revoked: the
     // status shown in the configuration screen has to follow.
-    client.on('connected', () => this.refreshConnectionStatus());
-    client.on('disconnected', () => this.refreshConnectionStatus());
+    client.on('connected', () => {
+      this._cancelReconnect(tvConfig.ip);
+      return this.refreshConnectionStatus();
+    });
+    // A dropped connection comes back through the scheduled reconnections: a
+    // TV rebooting or in standby answers the first attempt, a TV powered off
+    // is probed less and less often.
+    client.on('disconnected', () => {
+      this.scheduleReconnect(tvConfig.ip);
+      return this.refreshConnectionStatus();
+    });
     client.on('unpaired', () => this.refreshConnectionStatus());
 
     return client;
