@@ -55,12 +55,12 @@ docker run -d \
   -e GLADYS_HOST_API_URL=http://localhost:8080 \
   -e GLADYS_INTEGRATION_TOKEN=your_token_here \
   -e GLADYS_INTEGRATION_SELECTOR=android-tv-remote \
-  ghcr.io/guim31/gladys-integration-android-tv-remote:1.0.4
+  ghcr.io/guim31/gladys-integration-android-tv-remote:1.0.5
 ```
 
 | Tag       | Contenu                                                      |
 | --------- | ------------------------------------------------------------ |
-| `:1.0.4`  | Version figée — **recommandé**                               |
+| `:1.0.5`  | Version figée — **recommandé**                               |
 | `:latest` | Dernier état stable de la branche `main`                     |
 | `:dev`    | Dernier build de la branche `dev` — pour tester, peut casser |
 
