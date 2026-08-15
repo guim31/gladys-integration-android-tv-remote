@@ -108,6 +108,44 @@ gladys.onSetValue(async (device, feature, value) => {
   throw new Error(`Unsupported feature external_id: ${extId}`);
 });
 
+// The Gladys device of a TV was deleted: without it, the states published by
+// the connection have nowhere to land, so the session — and its background
+// reconnection attempts — can stop. The TV stays paired in the configuration;
+// a new device scan re-creates the device.
+gladys.onDeviceDeleted(async (device) => {
+  const tvIp = device?.params?.find((param) => param.name === 'TV_IP')?.value;
+  if (!tvIp) {
+    return;
+  }
+  logger.info(`[AndroidTV] Device of the TV at ${tvIp} deleted, closing its session.`);
+  clientManager.removeClient(tvIp);
+  await clientManager.refreshConnectionStatus();
+});
+
+// The device of a paired TV was (re-)added from the discovery tab: connect
+// right away so its states start flowing without waiting for a restart.
+gladys.onDeviceCreated(async (device) => {
+  const tvIp = device?.params?.find((param) => param.name === 'TV_IP')?.value;
+  if (!tvIp) {
+    return;
+  }
+  const tvConfig = config.tvs?.find((tv) => tv.ip === tvIp);
+  if (!tvConfig?.certificate_key || !tvConfig?.certificate_cert) {
+    return;
+  }
+  const client = clientManager.getOrCreateClient(tvConfig);
+  if (client.isConnected) {
+    return;
+  }
+  try {
+    await client.connect();
+  } catch (err) {
+    logger.warn(`[AndroidTV] The TV at ${tvIp} is not reachable yet (${err.message}), retrying in the background.`);
+    clientManager.scheduleReconnect(tvIp);
+  }
+  await clientManager.refreshConnectionStatus();
+});
+
 // Handle UI actions (start_pairing, submit_pin, test_connection, remove_tv)
 const ACTIONS = ['start_pairing', 'submit_pin', 'test_connection', 'remove_tv'];
 ACTIONS.forEach((actionKey) => {
@@ -143,6 +181,9 @@ async function ensureClientConnected(tvIp) {
   try {
     await client.connect();
   } catch (err) {
+    // Keep probing in the background so the TV is picked up as soon as it
+    // becomes reachable again — without blocking this command any longer.
+    clientManager.scheduleReconnect(tvIp);
     throw new Error(
       `The Android TV at ${tvIp} is not reachable (${err.message}). ` +
         'Remote v2 only reaches a TV that is ON or in network standby: a TV that is fully powered off ' +

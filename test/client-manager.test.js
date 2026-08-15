@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { AndroidTVClientManager } from '../src/remote/client-manager.js';
+import {
+  AndroidTVClientManager,
+  RECONNECT_INITIAL_DELAY_MS,
+  RECONNECT_MAX_DELAY_MS,
+} from '../src/remote/client-manager.js';
 
 function createMockGladys() {
   const published = [];
@@ -142,6 +146,70 @@ test('AndroidTVClientManager - removeClient should leave the other TVs alone', (
   manager.removeClient('192.168.1.222'); // unknown IP: no effect, no crash
 
   assert.equal(manager.getClient('192.168.1.51'), kept);
+});
+
+test('AndroidTVClientManager - a lost connection schedules a reconnection, a success resets it', () => {
+  const manager = new AndroidTVClientManager(createMockGladys());
+  const client = manager.getOrCreateClient({ ip: '192.168.1.50', certificate_key: 'K', certificate_cert: 'C' });
+
+  // The connection dropped: a retry must be pending, and the next delay is
+  // already doubled for the attempt after it.
+  client._emit('disconnected');
+  assert.ok(manager.reconnectTimers.has('192.168.1.50'));
+  assert.equal(manager.reconnectDelays.get('192.168.1.50'), RECONNECT_INITIAL_DELAY_MS * 2);
+
+  // The TV is back: pending attempt cancelled, backoff reset.
+  client._emit('connected');
+  assert.equal(manager.reconnectTimers.has('192.168.1.50'), false);
+  assert.equal(manager.reconnectDelays.has('192.168.1.50'), false);
+});
+
+test('AndroidTVClientManager - scheduleReconnect should skip TVs that cannot reconnect', () => {
+  const manager = new AndroidTVClientManager(createMockGladys());
+
+  manager.scheduleReconnect('192.168.1.99'); // unknown TV
+  assert.equal(manager.reconnectTimers.size, 0);
+
+  manager.getOrCreateClient({ ip: '192.168.1.50' });
+  manager.scheduleReconnect('192.168.1.50'); // not paired
+  assert.equal(manager.reconnectTimers.size, 0);
+
+  const connected = manager.getOrCreateClient({ ip: '192.168.1.51', certificate_key: 'K', certificate_cert: 'C' });
+  connected.isConnected = true;
+  manager.scheduleReconnect('192.168.1.51'); // already connected
+  assert.equal(manager.reconnectTimers.size, 0);
+});
+
+test('AndroidTVClientManager - the retry delay doubles up to the cap', () => {
+  const manager = new AndroidTVClientManager(createMockGladys());
+  manager.getOrCreateClient({ ip: '192.168.1.50', certificate_key: 'K', certificate_cert: 'C' });
+
+  let expected = RECONNECT_INITIAL_DELAY_MS;
+  for (let i = 0; i < 10; i += 1) {
+    manager.scheduleReconnect('192.168.1.50');
+    // Drop the pending timer to simulate a failed attempt without waiting.
+    clearTimeout(manager.reconnectTimers.get('192.168.1.50'));
+    manager.reconnectTimers.delete('192.168.1.50');
+    expected = Math.min(expected * 2, RECONNECT_MAX_DELAY_MS);
+    assert.equal(manager.reconnectDelays.get('192.168.1.50'), expected);
+  }
+});
+
+test('AndroidTVClientManager - removeClient and disconnectAll should cancel pending reconnections', () => {
+  const manager = new AndroidTVClientManager(createMockGladys());
+  manager.getOrCreateClient({ ip: '192.168.1.50', certificate_key: 'K', certificate_cert: 'C' });
+  manager.getOrCreateClient({ ip: '192.168.1.51', certificate_key: 'K', certificate_cert: 'C' });
+
+  manager.scheduleReconnect('192.168.1.50');
+  manager.scheduleReconnect('192.168.1.51');
+  assert.equal(manager.reconnectTimers.size, 2);
+
+  manager.removeClient('192.168.1.50');
+  assert.equal(manager.reconnectTimers.has('192.168.1.50'), false);
+
+  manager.disconnectAll();
+  assert.equal(manager.reconnectTimers.size, 0);
+  assert.equal(manager.reconnectDelays.size, 0);
 });
 
 test('AndroidTVClientManager - getPairingTarget should ignore a closed session', () => {

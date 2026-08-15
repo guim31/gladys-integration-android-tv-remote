@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import { AndroidTVClient, KEY_MAPPING } from '../src/remote/android-tv-client.js';
 
 /**
@@ -141,6 +142,89 @@ test('AndroidTVClient - disconnect should stop the reconnection loop of the libr
   assert.ok(destroyed);
   assert.equal(client.remote, null);
   assert.equal(client.isConnected, false);
+});
+
+test('AndroidTVClient - disconnect should neutralize the pending restart of the library', async () => {
+  const client = new AndroidTVClient({ tv_ip: '192.168.1.50' });
+  let restarted = false;
+  const manager = {
+    start: async () => {
+      restarted = true;
+    },
+    client: null,
+    removeAllListeners: () => {},
+  };
+  client.remote = { remoteManager: manager, removeAllListeners: () => {} };
+
+  client.disconnect();
+
+  // The 'close' handler of the library waits a second before calling start()
+  // again: dropping the socket listeners cannot cancel that pending call, so
+  // start() itself must have become a no-op.
+  await manager.start();
+  assert.equal(restarted, false);
+});
+
+/**
+ * Build a fake AndroidRemote whose connection always fails, mimicking the
+ * library: its own start() swallows the manager failure and resolves.
+ *
+ * @returns {Object} The fake AndroidRemote instance.
+ */
+function createUnreachableRemote() {
+  const manager = {
+    on: () => {},
+    removeAllListeners: () => {},
+    client: null,
+    start: async () => {
+      const err = new Error('connect EHOSTUNREACH 192.168.1.50:6466');
+      err.code = 'EHOSTUNREACH';
+      throw err;
+    },
+  };
+  return {
+    remoteManager: manager,
+    pairingManager: null,
+    on: () => {},
+    removeListener: () => {},
+    removeAllListeners: () => {},
+    start: async () => {
+      await new Promise((resolve) => setImmediate(resolve));
+      return manager.start().catch(() => {});
+    },
+  };
+}
+
+test('AndroidTVClient - connect should fail fast on an unreachable TV', async () => {
+  const client = new AndroidTVClient({ tv_ip: '192.168.1.50', certificate_key: 'K', certificate_cert: 'C' });
+  client._createRemote = () => createUnreachableRemote();
+
+  // The library swallows connection errors and retries every second: without
+  // the interception of manager.start(), this would hang until the timeout.
+  await assert.rejects(() => client.connect(), /unreachable/);
+  assert.equal(client.remote, null, 'a failed attempt must not leave a session behind');
+  assert.equal(client.isConnected, false);
+});
+
+test('AndroidTVClient - a lost connection must close the session and report disconnected', () => {
+  const client = new AndroidTVClient({ tv_ip: '192.168.1.50', certificate_key: 'K', certificate_cert: 'C' });
+  const events = [];
+  client.on('disconnected', () => events.push('disconnected'));
+
+  const socket = new EventEmitter();
+  socket.destroy = () => {};
+  const manager = { client: socket, on: () => {}, removeAllListeners: () => {}, start: async () => {} };
+  client.remote = { remoteManager: manager, removeAllListeners: () => {} };
+  client.isConnected = true;
+
+  client._guardRemoteManager();
+  socket.emit('close');
+
+  // The library would now retry every second forever: the session must be
+  // closed for good, reconnections belong to the client manager.
+  assert.equal(client.isConnected, false);
+  assert.equal(client.remote, null);
+  assert.deepEqual(events, ['disconnected']);
 });
 
 /**

@@ -237,6 +237,11 @@ export class AndroidTVClient {
   /**
    * Connect to the TV using the stored TLS certificates.
    *
+   * A failed attempt never leaves anything running: the library retries every
+   * second on its own forever, so an unreachable TV would fill the logs with
+   * connection errors until the container restarts. Reconnections are
+   * scheduled by the client manager instead, with a capped backoff.
+   *
    * @returns {Promise<boolean>} Resolves once the remote session is ready.
    */
   async connect() {
@@ -253,10 +258,19 @@ export class AndroidTVClient {
     return new Promise((resolve, reject) => {
       let timeout;
       let settled = false;
+      let attempt;
 
       const cleanup = () => {
-        this.remote?.removeListener('ready', onReady);
-        this.remote?.removeListener('unpaired', onUnpaired);
+        attempt?.removeListener('ready', onReady);
+        attempt?.removeListener('unpaired', onUnpaired);
+      };
+      // Close this attempt, unless a newer connect() already replaced it —
+      // destroying the current session because an old one timed out would
+      // kill a healthy connection.
+      const abandon = () => {
+        if (this.remote === attempt) {
+          this.disconnect();
+        }
       };
       const finish = (settle, value) => {
         if (settled) {
@@ -269,38 +283,60 @@ export class AndroidTVClient {
       };
 
       const onReady = () => finish(resolve, true);
-      const onUnpaired = () =>
+      const onUnpaired = () => {
+        abandon();
         finish(
           reject,
           new Error(`The TV at ${this.ip} refused the stored certificate. Please run the pairing sequence again.`),
         );
+      };
 
       try {
-        this.remote = this._createRemote({ cert: { key: this.key, cert: this.cert } });
+        attempt = this._createRemote({ cert: { key: this.key, cert: this.cert } });
+        this.remote = attempt;
       } catch (err) {
         reject(new Error(`Failed to create remote instance: ${err.message}`));
         return;
       }
 
       timeout = setTimeout(() => {
-        // The library keeps retrying on its own, so a TV that is switched on
-        // later still ends up connected — it just missed this attempt.
+        abandon();
         finish(
           reject,
           new Error(`Connection to the TV at ${this.ip} timed out. Make sure it is turned ON and reachable.`),
         );
       }, CONNECT_TIMEOUT_MS);
 
-      this.remote.on('ready', onReady);
-      this.remote.on('unpaired', onUnpaired);
+      attempt.on('ready', onReady);
+      attempt.on('unpaired', onUnpaired);
 
-      this.remote
-        .start()
-        .catch((err) => finish(reject, new Error(`Failed to start connection: ${err?.message || err}`)));
+      attempt.start().catch((err) => {
+        abandon();
+        finish(reject, new Error(`Failed to start connection: ${err?.message || err}`));
+      });
 
       // With a certificate at hand, the library builds its RemoteManager
       // synchronously, so it can already be guarded against uncaught errors.
       this._guardRemoteManager();
+
+      // The library swallows connection errors (its start() resolves
+      // undefined after logging them) and retries every second until this
+      // promise times out. Intercepting the manager's own start() is the only
+      // way to learn about the first failure: a TV that is off answers with
+      // EHOSTUNREACH within seconds — no point waiting the full timeout.
+      const manager = attempt.remoteManager;
+      if (manager && typeof manager.start === 'function') {
+        const libraryStart = manager.start.bind(manager);
+        manager.start = () =>
+          libraryStart().catch((err) => {
+            abandon();
+            finish(
+              reject,
+              new Error(`The TV at ${this.ip} is unreachable (${err?.message || err}). Make sure it is turned ON.`),
+            );
+            throw err;
+          });
+      }
     });
   }
 
@@ -442,6 +478,13 @@ export class AndroidTVClient {
         if (!manager) {
           return;
         }
+        // The restart of the library may already be scheduled (its 'close'
+        // handler waits a second before calling start() again): dropping the
+        // socket listeners cannot cancel that pending call, so start() itself
+        // is neutralized to actually end the loop.
+        if (typeof manager.start === 'function') {
+          manager.start = async () => false;
+        }
         const socket = manager.client;
         if (socket) {
           socket.removeAllListeners('close');
@@ -540,6 +583,10 @@ export class AndroidTVClient {
         }
         this.isConnected = false;
         logger.warn(`[AndroidTV] Connection closed for ${this.ip}`);
+        // The library would now retry every second on its own, forever, even
+        // against a TV that is powered off. Close the session for good: the
+        // client manager schedules the reconnections, with a capped backoff.
+        this.disconnect();
         this._emit('disconnected');
       });
     }

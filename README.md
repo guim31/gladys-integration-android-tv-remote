@@ -55,12 +55,12 @@ docker run -d \
   -e GLADYS_HOST_API_URL=http://localhost:8080 \
   -e GLADYS_INTEGRATION_TOKEN=your_token_here \
   -e GLADYS_INTEGRATION_SELECTOR=android-tv-remote \
-  ghcr.io/guim31/gladys-integration-android-tv-remote:1.0.4
+  ghcr.io/guim31/gladys-integration-android-tv-remote:1.0.5
 ```
 
 | Tag       | Contenu                                                      |
 | --------- | ------------------------------------------------------------ |
-| `:1.0.4`  | Version figée — **recommandé**                               |
+| `:1.0.5`  | Version figée — **recommandé**                               |
 | `:latest` | Dernier état stable de la branche `main`                     |
 | `:dev`    | Dernier build de la branche `dev` — pour tester, peut casser |
 
@@ -109,6 +109,16 @@ La TV est totalement hors tension, a changé d'adresse IP, ou n'est pas sur le m
 
 - L'allumage à distance ne fonctionne que si la TV est en **veille réseau** (voir [Bon à savoir](#bon-à-savoir)).
 - Si l'adresse IP de la TV a changé, l'appareil Gladys ne la retrouvera pas : mettez une **réservation DHCP** en place, puis ré-appairez si nécessaire.
+
+### La TV est éteinte : que fait l'intégration ?
+
+Rien d'agressif. Quand une TV appairée est injoignable (hors tension, débranchée), l'intégration
+tente de s'y reconnecter en arrière-plan avec un délai qui **double à chaque échec** (5 s, 10 s,
+20 s… plafonné à 2 minutes), et le délai repart à zéro dès qu'une connexion aboutit. La TV est donc
+reprise automatiquement en quelques secondes lorsqu'elle redevient joignable (allumage, retour de
+veille réseau), sans inonder les logs ni le réseau entre-temps. Une commande envoyée depuis un
+dashboard pendant ce temps déclenche une tentative immédiate : si la TV ne répond pas, la commande
+échoue en quelques secondes avec un message explicite au lieu de rester bloquée.
 
 ### « The TV refused the pairing » / « rejected the stored certificate »
 
