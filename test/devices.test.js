@@ -40,9 +40,20 @@ test('buildAndroidTVDevice - should construct device structure correctly with ap
   assert.ok(muteFeature);
   assert.equal(muteFeature.type, 'volume-mute');
 
-  const youtubeFeature = device.features.find((f) => f.external_id.endsWith(':app:youtube'));
-  assert.ok(youtubeFeature);
-  assert.equal(youtubeFeature.category, 'button');
+  // One dynamic select for every app, not one button per app: the buttons of
+  // v1.0 were sensors in Gladys, nothing could be pressed in the UI.
+  const appFeature = device.features.find((f) => f.external_id.endsWith(':app'));
+  assert.ok(appFeature);
+  assert.equal(appFeature.category, 'text');
+  assert.equal(appFeature.type, 'select');
+  assert.ok(Array.isArray(appFeature.supported_options));
+  assert.ok(appFeature.supported_options.length > 0);
+  appFeature.supported_options.forEach((option, index) => {
+    assert.equal(typeof option.value, 'string');
+    assert.equal(typeof option.label, 'string');
+    assert.equal(option.sort_order, index);
+  });
+  assert.ok(appFeature.supported_options.some((option) => option.value === 'youtube'));
 });
 
 test('buildAndroidTVDevice - every feature must use a category and a type known to Gladys', () => {
@@ -82,10 +93,10 @@ test('buildAndroidTVDevice - should expose every remote key', () => {
   });
 });
 
-test('buildAndroidTVDevice - should omit app shortcuts when disabled', () => {
+test('buildAndroidTVDevice - should omit the application select when disabled', () => {
   const device = buildAndroidTVDevice(mockGladys, { ip: '192.168.1.50' }, false);
   assert.equal(
-    device.features.find((f) => f.external_id.includes(':app:')),
+    device.features.find((f) => f.external_id.endsWith(':app')),
     undefined,
   );
 });
@@ -125,8 +136,8 @@ function createManagerMock(client) {
   return {
     pairingTarget: null,
     getOrCreateClient: () => client,
-    setPairingTarget(ip, name) {
-      this.pairingTarget = { ip, name };
+    setPairingTarget(ip, name, mac = '') {
+      this.pairingTarget = { ip, name, mac };
     },
     getPairingTarget() {
       return this.pairingTarget ? { ...this.pairingTarget, client } : undefined;
@@ -154,7 +165,33 @@ test('handleActionExecution - start_pairing should take its IP from the action f
   assert.ok(result.en.includes('192.168.100.130'));
   assert.ok(result.fr.includes('code PIN'));
   // Step 2 must find the TV again without asking for the address twice.
-  assert.deepEqual(manager.pairingTarget, { ip: '192.168.100.130', name: 'Shield TV' });
+  assert.deepEqual(manager.pairingTarget, { ip: '192.168.100.130', name: 'Shield TV', mac: '' });
+});
+
+test('handleActionExecution - start_pairing should normalize and carry the MAC address', async () => {
+  const client = { startPairing: async () => ({ status: 'secret_required' }) };
+  const manager = createManagerMock(client);
+
+  await handleActionExecution(
+    mockGladys,
+    'start_pairing',
+    { tv_ip: '192.168.1.50', tv_name: 'TV Salon', tv_mac: ' 64-E4-D5-B4-12-66 ' },
+    manager,
+    { tvs: [] },
+  );
+
+  assert.equal(manager.pairingTarget.mac, '64:e4:d5:b4:12:66');
+});
+
+test('handleActionExecution - start_pairing should reject a malformed MAC address', async () => {
+  const manager = createManagerMock({ startPairing: async () => ({}) });
+  await assert.rejects(
+    () =>
+      handleActionExecution(mockGladys, 'start_pairing', { tv_ip: '192.168.1.50', tv_mac: 'not-a-mac' }, manager, {
+        tvs: [],
+      }),
+    /not a valid MAC address/,
+  );
 });
 
 test('handleActionExecution - start_pairing should reject a missing IP', async () => {
@@ -209,6 +246,98 @@ test('handleActionExecution - submit_pin should keep the other paired TVs', asyn
   assert.equal(saved[0].tvs.length, 2);
   assert.equal(saved[0].tvs[0].certificate_key, 'K1');
   assert.equal(saved[0].tvs[1].ip, '192.168.1.51');
+});
+
+test('handleActionExecution - submit_pin should persist the MAC address typed in step 1', async () => {
+  const saved = [];
+  const gladys = { ...mockGladys, setConfig: async (partial) => saved.push(partial) };
+  const client = {
+    startPairing: async () => ({}),
+    submitPin: async () => ({ status: 'success', certificates: { key: 'K', cert: 'C' } }),
+  };
+  const manager = createManagerMock(client);
+
+  await handleActionExecution(
+    gladys,
+    'start_pairing',
+    { tv_ip: '192.168.1.50', tv_mac: '64:E4:D5:B4:12:66' },
+    manager,
+    { tvs: [] },
+  );
+  await handleActionExecution(gladys, 'submit_pin', { pairing_pin: 'B4B0C7' }, manager, { tvs: [] });
+
+  assert.equal(saved[0].tvs[0].mac, '64:e4:d5:b4:12:66');
+});
+
+test('handleActionExecution - submit_pin without a MAC should keep the stored one', async () => {
+  const saved = [];
+  const gladys = { ...mockGladys, setConfig: async (partial) => saved.push(partial) };
+  const client = {
+    startPairing: async () => ({}),
+    submitPin: async () => ({ status: 'success', certificates: { key: 'K2', cert: 'C2' } }),
+  };
+  const manager = createManagerMock(client);
+  const config = {
+    tvs: [
+      { ip: '192.168.1.50', name: 'TV Salon', mac: '64:e4:d5:b4:12:66', certificate_key: 'K1', certificate_cert: 'C1' },
+    ],
+  };
+
+  // Re-pairing the same TV (e.g. after a factory reset) without re-typing the MAC.
+  await handleActionExecution(gladys, 'start_pairing', { tv_ip: '192.168.1.50' }, manager, config);
+  await handleActionExecution(gladys, 'submit_pin', { pairing_pin: 'B4B0C7' }, manager, config);
+
+  assert.equal(saved[0].tvs[0].mac, '64:e4:d5:b4:12:66');
+});
+
+test('handleActionExecution - set_mac should store the normalized MAC of a paired TV', async () => {
+  const saved = [];
+  const gladys = { ...mockGladys, setConfig: async (partial) => saved.push(partial) };
+  const manager = createManagerMock({});
+  const config = {
+    tvs: [{ ip: '192.168.1.50', name: 'TV Salon', mac: '', certificate_key: 'K', certificate_cert: 'C' }],
+  };
+
+  const result = await handleActionExecution(
+    gladys,
+    'set_mac',
+    { tv_ip: '192.168.1.50', tv_mac: '64E4D5B41266' },
+    manager,
+    config,
+  );
+
+  assert.equal(saved[0].tvs[0].mac, '64:e4:d5:b4:12:66');
+  assert.ok(result.fr.includes('64:e4:d5:b4:12:66'));
+});
+
+test('handleActionExecution - set_mac with an empty MAC should clear the stored one', async () => {
+  const saved = [];
+  const gladys = { ...mockGladys, setConfig: async (partial) => saved.push(partial) };
+  const manager = createManagerMock({});
+  const config = {
+    tvs: [
+      { ip: '192.168.1.50', name: 'TV Salon', mac: '64:e4:d5:b4:12:66', certificate_key: 'K', certificate_cert: 'C' },
+    ],
+  };
+
+  const result = await handleActionExecution(gladys, 'set_mac', { tv_ip: '192.168.1.50' }, manager, config);
+
+  assert.equal(saved[0].tvs[0].mac, '');
+  assert.ok(result.fr.includes('effacée'));
+});
+
+test('handleActionExecution - set_mac should reject an invalid MAC and an unknown TV', async () => {
+  const manager = createManagerMock({});
+  const config = { tvs: [{ ip: '192.168.1.50', name: 'TV Salon', certificate_key: 'K', certificate_cert: 'C' }] };
+
+  await assert.rejects(
+    () => handleActionExecution(mockGladys, 'set_mac', { tv_ip: '192.168.1.50', tv_mac: 'zz:zz' }, manager, config),
+    /not a valid MAC address/,
+  );
+  await assert.rejects(
+    () => handleActionExecution(mockGladys, 'set_mac', { tv_ip: '10.0.0.9', tv_mac: '64E4D5B41266' }, manager, config),
+    /No TV with the address/,
+  );
 });
 
 test('handleActionExecution - submit_pin should explain that step 1 is missing', async () => {

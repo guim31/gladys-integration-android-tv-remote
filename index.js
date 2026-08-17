@@ -63,9 +63,20 @@ gladys.onSetValue(async (device, feature, value) => {
     throw new Error(`Unable to determine the target TV for feature ${feature.external_id}`);
   }
 
-  const tvClient = await ensureClientConnected(tvIp);
-
   const extId = feature.external_id;
+
+  // Power requests get their own path, reachable TV or not: an unreachable TV
+  // is already off — asking for "off" is satisfied as-is, and asking for "on"
+  // goes through Wake-on-LAN when a MAC address is stored. The resulting state
+  // is never published from here: KEYCODE_POWER is a toggle, so the TV itself
+  // is the only source of truth — its reports (or its unreachability) are
+  // what update Gladys.
+  if (extId.endsWith(':power')) {
+    await handlePowerRequest(tvIp, Number(value) > 0);
+    return;
+  }
+
+  const tvClient = await ensureClientConnected(tvIp);
 
   // 1. Remote key buttons
   if (extId.includes(':key:')) {
@@ -73,9 +84,11 @@ gladys.onSetValue(async (device, feature, value) => {
     return;
   }
 
-  // 2. App launchers
-  if (extId.includes(':app:')) {
-    const appId = extId.slice(extId.indexOf(':app:') + 5);
+  // 2. Application select: the value is the app id chosen in the dropdown.
+  // The `:app:<id>` form is the per-app button of v1.0 devices, kept working
+  // until their owners re-scan.
+  if (extId.endsWith(':app') || extId.includes(':app:')) {
+    const appId = extId.includes(':app:') ? extId.slice(extId.indexOf(':app:') + 5) : String(value ?? '').trim();
     const app = SUPPORTED_APPS.find((supported) => supported.id === appId);
     if (!app) {
       throw new Error(`Unknown app ID: ${appId}`);
@@ -84,21 +97,13 @@ gladys.onSetValue(async (device, feature, value) => {
     return;
   }
 
-  // 3. Power switch. The resulting state is not published here: KEYCODE_POWER
-  // is a toggle, so the TV itself is the only source of truth — its 'powered'
-  // report is what updates Gladys.
-  if (extId.endsWith(':power')) {
-    await tvClient.setPower(Number(value) > 0);
-    return;
-  }
-
-  // 4. Volume control
+  // 3. Volume control
   if (extId.endsWith(':volume')) {
     await tvClient.setVolumeLevel(Number(value));
     return;
   }
 
-  // 5. Mute switch. Same as power: the state published in Gladys comes from
+  // 4. Mute switch. Same as power: the state published in Gladys comes from
   // the volume report of the TV, not from the request.
   if (extId.endsWith(':mute')) {
     await tvClient.setMute(Number(value) > 0);
@@ -146,14 +151,67 @@ gladys.onDeviceCreated(async (device) => {
   await clientManager.refreshConnectionStatus();
 });
 
-// Handle UI actions (start_pairing, submit_pin, test_connection, remove_tv)
-const ACTIONS = ['start_pairing', 'submit_pin', 'test_connection', 'remove_tv'];
+// Handle UI actions (start_pairing, submit_pin, set_mac, test_connection, remove_tv)
+const ACTIONS = ['start_pairing', 'submit_pin', 'set_mac', 'test_connection', 'remove_tv'];
 ACTIONS.forEach((actionKey) => {
   gladys.onAction(actionKey, async (fields) => {
     await refreshConfig();
     return handleActionExecution(gladys, actionKey, fields, clientManager, config);
   });
 });
+
+/**
+ * Handle a power on/off request, including on a TV that is unreachable.
+ *
+ * The Gladys core waits 5 seconds for the ack of a set-value command: a TV
+ * booting after a Wake-on-LAN takes far longer than that, so the wake path
+ * acks right away and lets the background reconnections pick the TV up — the
+ * power state shown in Gladys follows once the session opens.
+ *
+ * @param {string} tvIp The TV IP address.
+ * @param {boolean} turnOn Requested power state.
+ * @returns {Promise<void>} Resolves once the request is handled.
+ */
+async function handlePowerRequest(tvIp, turnOn) {
+  let client;
+  try {
+    client = await ensureClientConnected(tvIp);
+  } catch (err) {
+    if (!turnOn) {
+      // The TV does not answer the network: it is already off.
+      logger.info(`[AndroidTV] The TV at ${tvIp} is already unreachable, nothing to turn off.`);
+      return;
+    }
+    await wakeTv(tvIp, err);
+    return;
+  }
+  await client.setPower(turnOn);
+}
+
+/**
+ * Wake an unreachable TV with a Wake-on-LAN magic packet.
+ *
+ * @param {string} tvIp The TV IP address.
+ * @param {Error} cause The connection error that led here.
+ * @returns {Promise<void>} Resolves once the magic packet is emitted.
+ */
+async function wakeTv(tvIp, cause) {
+  const tvConfig = config.tvs?.find((tv) => tv.ip === tvIp);
+  if (!tvConfig?.mac) {
+    throw new Error(
+      `The Android TV at ${tvIp} is not reachable and has no MAC address stored. ` +
+        'Remote v2 cannot wake a fully powered-off TV by itself: store its MAC address with the ' +
+        '"Set the MAC address of a paired TV" action to enable Wake-on-LAN, or turn it on with its remote.',
+      { cause },
+    );
+  }
+
+  logger.info(`[AndroidTV] Waking the TV at ${tvIp} with a magic packet to ${tvConfig.mac}...`);
+  await gladys.wakeOnLan(tvConfig.mac);
+  // The TV needs time to boot: the reconnections running in the background
+  // pick it up as soon as its network is back.
+  clientManager.promptReconnect(tvIp);
+}
 
 /**
  * Get a live client for a TV, reconnecting on the fly when needed.

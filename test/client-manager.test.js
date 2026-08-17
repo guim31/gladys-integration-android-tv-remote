@@ -195,6 +195,37 @@ test('AndroidTVClientManager - the retry delay doubles up to the cap', () => {
   }
 });
 
+test('AndroidTVClientManager - promptReconnect should forget the accumulated backoff', () => {
+  const manager = new AndroidTVClientManager(createMockGladys());
+  manager.getOrCreateClient({ ip: '192.168.1.50', certificate_key: 'K', certificate_cert: 'C' });
+
+  // The TV was off for a while: the delay reached the cap.
+  for (let i = 0; i < 8; i += 1) {
+    manager.scheduleReconnect('192.168.1.50');
+    clearTimeout(manager.reconnectTimers.get('192.168.1.50'));
+    manager.reconnectTimers.delete('192.168.1.50');
+  }
+  assert.equal(manager.reconnectDelays.get('192.168.1.50'), RECONNECT_MAX_DELAY_MS);
+
+  // A Wake-on-LAN was just sent: the next attempts must come quickly.
+  manager.promptReconnect('192.168.1.50');
+  assert.ok(manager.reconnectTimers.has('192.168.1.50'));
+  assert.equal(manager.reconnectDelays.get('192.168.1.50'), RECONNECT_INITIAL_DELAY_MS * 2);
+
+  manager.disconnectAll();
+});
+
+test('AndroidTVClientManager - a known app reported by the TV updates the application select', () => {
+  const gladys = createMockGladys();
+  const manager = new AndroidTVClientManager(gladys);
+  const client = manager.getOrCreateClient({ ip: '192.168.1.50' });
+
+  client._emit('current_app', 'com.netflix.ninja');
+  client._emit('current_app', 'com.some.unknown.app'); // not in the catalog: nothing published
+
+  assert.deepEqual(gladys.published, [{ externalId: 'androidtv:tv:192_168_1_50:app', value: { text: 'netflix' } }]);
+});
+
 test('AndroidTVClientManager - removeClient and disconnectAll should cancel pending reconnections', () => {
   const manager = new AndroidTVClientManager(createMockGladys());
   manager.getOrCreateClient({ ip: '192.168.1.50', certificate_key: 'K', certificate_cert: 'C' });
