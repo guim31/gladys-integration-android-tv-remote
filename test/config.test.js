@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeConfig } from '../src/config.js';
+import { normalizeConfig, normalizeMac } from '../src/config.js';
 
 test('normalizeConfig - should not invent a TV when nothing is configured', () => {
   const normalized = normalizeConfig({});
@@ -58,4 +58,29 @@ test('normalizeConfig - should deduplicate TVs sharing an IP', () => {
   });
   assert.equal(normalized.tvs.length, 1);
   assert.equal(normalized.tvs[0].name, 'Premier');
+});
+
+test('normalizeMac - should accept the display forms used by the TVs', () => {
+  assert.equal(normalizeMac('64:E4:D5:B4:12:66'), '64:e4:d5:b4:12:66');
+  assert.equal(normalizeMac('64-e4-d5-b4-12-66'), '64:e4:d5:b4:12:66');
+  assert.equal(normalizeMac(' 64E4D5B41266 '), '64:e4:d5:b4:12:66');
+});
+
+test('normalizeMac - should reject anything that is not a MAC', () => {
+  assert.equal(normalizeMac(''), '');
+  assert.equal(normalizeMac(undefined), '');
+  assert.equal(normalizeMac('192.168.1.50'), '');
+  assert.equal(normalizeMac('64:E4:D5:B4:12'), '');
+  assert.equal(normalizeMac('zz:zz:zz:zz:zz:zz'), '');
+});
+
+test('normalizeConfig - should keep and normalize the MAC of a TV', () => {
+  const normalized = normalizeConfig({
+    tvs: [{ ip: '192.168.1.50', mac: '64-E4-D5-B4-12-66', certificate_key: 'K', certificate_cert: 'C' }],
+  });
+  assert.equal(normalized.tvs[0].mac, '64:e4:d5:b4:12:66');
+
+  // No MAC configured: the field is present and empty, never undefined.
+  const withoutMac = normalizeConfig({ tvs: [{ ip: '192.168.1.51' }] });
+  assert.equal(withoutMac.tvs[0].mac, '');
 });

@@ -6,6 +6,10 @@ const { AndroidRemote, RemoteKeyCode, RemoteDirection } = AndroidRemotePkg;
 const PAIRING_TIMEOUT_MS = 25000;
 const CONNECT_TIMEOUT_MS = 15000;
 const VOLUME_STEP_DELAY_MS = 40;
+// Time left to the TV to report its power state after the session opens.
+// Google TVs send it right away; devices that never do (Mi Box...) are
+// considered awake — they answered the connection.
+const POWER_REPORT_GRACE_MS = 5000;
 
 /**
  * Options shared by every AndroidRemote instance.
@@ -56,6 +60,9 @@ export class AndroidTVClient {
     this.isPairing = false;
     this.generatedCertificates = null;
     this.listeners = new Map();
+    this.powerGraceTimer = null;
+    // Overridable for tests: the production value waits several seconds.
+    this.powerGraceMs = config.power_report_grace_ms || POWER_REPORT_GRACE_MS;
 
     // Last state reported by the TV. `null` means "never reported yet".
     this.powered = null;
@@ -301,6 +308,7 @@ export class AndroidTVClient {
 
       timeout = setTimeout(() => {
         abandon();
+        this._markUnreachable();
         finish(
           reject,
           new Error(`Connection to the TV at ${this.ip} timed out. Make sure it is turned ON and reachable.`),
@@ -330,6 +338,7 @@ export class AndroidTVClient {
         manager.start = () =>
           libraryStart().catch((err) => {
             abandon();
+            this._markUnreachable();
             finish(
               reject,
               new Error(`The TV at ${this.ip} is unreachable (${err?.message || err}). Make sure it is turned ON.`),
@@ -468,6 +477,8 @@ export class AndroidTVClient {
     this.remote = null;
     this.isConnected = false;
     this.isPairing = false;
+    clearTimeout(this.powerGraceTimer);
+    this.powerGraceTimer = null;
 
     if (!remote) {
       return;
@@ -545,10 +556,42 @@ export class AndroidTVClient {
       this.isConnected = true;
       logger.info(`[AndroidTV] Remote session ready with ${this.ip}`);
       this._guardRemoteManager();
+      // A fresh session invalidates what was known of the power state. Google
+      // TVs report it right away (remoteStart); a device that reports nothing
+      // within the grace delay is considered awake — it answered the
+      // connection. TVs in network standby do send remoteStart(false), so
+      // they are not mistaken for awake.
+      this.powered = null;
+      clearTimeout(this.powerGraceTimer);
+      this.powerGraceTimer = setTimeout(() => {
+        if (this.isConnected && this.powered === null) {
+          this.powered = true;
+          this._emit('power', true);
+        }
+      }, this.powerGraceMs);
+      if (typeof this.powerGraceTimer.unref === 'function') {
+        this.powerGraceTimer.unref();
+      }
       this._emit('connected');
     });
 
     return remote;
+  }
+
+  /**
+   * Report the TV as switched off because it stopped answering the network.
+   *
+   * The Remote v2 protocol has no power query: an unreachable device is the
+   * closest thing to a "the TV is off" signal (the ping-style check users
+   * expect). Only the off transition is reported here; the on transition
+   * comes from the TV itself once a session opens again.
+   */
+  _markUnreachable() {
+    if (this.powered === false) {
+      return;
+    }
+    this.powered = false;
+    this._emit('power', false);
   }
 
   /**

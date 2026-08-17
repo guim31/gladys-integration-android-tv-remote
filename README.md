@@ -13,8 +13,9 @@ Intégration externe officielle pour **Gladys Assistant** permettant de contrôl
   - Gestion du **Volume** et du mode **Sourdine (Mute)**
   - Boutons de **Navigation (D-Pad)** : Haut, Bas, Gauche, Droite, OK, Retour, Accueil, Menu
   - Contrôle des **Médias** : Lecture, Pause, Stop, Précédent, Suivant, Avancer, Reculer
-- 🔁 **Retour d'état** : l'état marche/arrêt, le volume et la sourdine remontés par la TV sont publiés dans Gladys en temps réel.
-- 🚀 **Raccourcis d'Applications (Désactivables)** : Lancement direct d'applications populaires (_YouTube, Netflix, Prime Video, Disney+, Spotify, Plex, Arte, Molotov, myCANAL_).
+- 🔁 **Retour d'état** : l'état marche/arrêt, le volume, la sourdine et l'application au premier plan remontés par la TV sont publiés dans Gladys en temps réel. Une TV qui ne répond plus sur le réseau est marquée éteinte ; un appareil qui accepte la session sans annoncer son état (Mi Box…) est considéré allumé.
+- 🚀 **Lanceur d'Applications (Désactivable)** : un sélecteur par TV pour lancer une application (_YouTube, Netflix, Prime Video, Disney+, Spotify, Plex, Arte, Molotov, myCANAL_), depuis le tableau de bord ou une scène.
+- ⏰ **Wake-on-LAN (Facultatif)** : renseignez l'adresse MAC de la TV et « Allumer » depuis Gladys réveille une TV totalement éteinte via un magic packet, là où le protocole Remote v2 seul ne le permet pas.
 
 ---
 
@@ -23,7 +24,7 @@ Intégration externe officielle pour **Gladys Assistant** permettant de contrôl
 Tout ce que vous avez à saisir se trouve **dans les actions elles-mêmes** : rien à enregistrer entre les étapes.
 
 1. Allumez votre téléviseur.
-2. **Étape 1 — Démarrer l'appairage** : saisissez l'**adresse IP** de la TV (ex : `192.168.1.50`) et, si vous le souhaitez, un **nom** (ex : `TV Salon`), puis exécutez l'action. Un code PIN à 6 caractères s'affiche à l'écran du téléviseur.
+2. **Étape 1 — Démarrer l'appairage** : saisissez l'**adresse IP** de la TV (ex : `192.168.1.50`) et, si vous le souhaitez, un **nom** (ex : `TV Salon`) et son **adresse MAC** (pour le Wake-on-LAN, voir plus bas), puis exécutez l'action. Un code PIN à 6 caractères s'affiche à l'écran du téléviseur.
 3. **Étape 2 — Valider le code PIN** : saisissez le code affiché et exécutez l'action **dans la foulée** (le code expire). Les certificats TLS clients sont générés et enregistrés.
 4. Lancez une **recherche d'appareils** (onglet Découverte) pour ajouter la TV à vos appareils Gladys.
 
@@ -39,7 +40,8 @@ Pour **retirer une TV**, utilisez l'action « Retirer une TV appairée » avec s
 - Les touches **Marche/Arrêt** et **Sourdine** du protocole Remote v2 sont des **bascules** : l'intégration ne les envoie que si l'état connu de la TV diffère de l'état demandé.
 - Le protocole n'a pas de commande de volume absolue : le niveau demandé est atteint en répétant les touches volume +/−, sur l'échelle de volume annoncée par la TV.
 - Si la TV est éteinte au démarrage de l'intégration, la connexion est retentée automatiquement, y compris au moment où une commande arrive : elle se rétablit dès que la TV est joignable.
-- **Allumer la TV à distance** ne fonctionne que si elle est en **veille réseau** (le port Remote v2 reste ouvert en veille sur la plupart des modèles). Une TV totalement hors tension doit être rallumée avec sa télécommande physique ou via HDMI-CEC.
+- **Allumer la TV à distance** via le protocole Remote v2 seul ne fonctionne que si elle est en **veille réseau** (le port reste ouvert en veille sur la plupart des modèles). Pour réveiller une TV **totalement éteinte**, renseignez son **adresse MAC** (visible dans ses paramètres réseau) via l'action « Renseigner l'adresse MAC d'une TV appairée » : « Allumer » depuis Gladys enverra alors un paquet **Wake-on-LAN**. Activez « Wake-on-LAN » / « Réveil réseau » dans les paramètres de la TV si l'option existe (en Wi-Fi, cherchez « Wake-on-WLAN »).
+- **Migration depuis la v1.0** : les boutons « App … » par application sont remplacés par un sélecteur unique « Application ». Relancez une **recherche d'appareils** et cliquez sur **Mettre à jour** sur chaque TV pour récupérer le sélecteur.
 
 ---
 
@@ -55,12 +57,12 @@ docker run -d \
   -e GLADYS_HOST_API_URL=http://localhost:8080 \
   -e GLADYS_INTEGRATION_TOKEN=your_token_here \
   -e GLADYS_INTEGRATION_SELECTOR=android-tv-remote \
-  ghcr.io/guim31/gladys-integration-android-tv-remote:1.0.5
+  ghcr.io/guim31/gladys-integration-android-tv-remote:1.1.0
 ```
 
 | Tag       | Contenu                                                      |
 | --------- | ------------------------------------------------------------ |
-| `:1.0.5`  | Version figée — **recommandé**                               |
+| `:1.1.0`  | Version figée — **recommandé**                               |
 | `:latest` | Dernier état stable de la branche `main`                     |
 | `:dev`    | Dernier build de la branche `dev` — pour tester, peut casser |
 
@@ -107,7 +109,7 @@ Dès que le réseau est réparé, l'intégration se reconnecte toute seule (le S
 
 La TV est totalement hors tension, a changé d'adresse IP, ou n'est pas sur le même réseau que Gladys. Rappels :
 
-- L'allumage à distance ne fonctionne que si la TV est en **veille réseau** (voir [Bon à savoir](#bon-à-savoir)).
+- L'allumage à distance sans Wake-on-LAN ne fonctionne que si la TV est en **veille réseau** ; renseignez l'**adresse MAC** de la TV pour réveiller une TV totalement éteinte (voir [Bon à savoir](#bon-à-savoir)).
 - Si l'adresse IP de la TV a changé, l'appareil Gladys ne la retrouvera pas : mettez une **réservation DHCP** en place, puis ré-appairez si nécessaire.
 
 ### La TV est éteinte : que fait l'intégration ?

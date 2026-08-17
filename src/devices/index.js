@@ -1,5 +1,6 @@
 import { logger } from '@gladysassistant/integration-sdk';
 import { SUPPORTED_APPS } from './apps.js';
+import { normalizeMac } from '../config.js';
 
 /**
  * Remote keys exposed as Gladys features.
@@ -92,19 +93,27 @@ export function buildAndroidTVDevice(gladys, tvConfig, enableAppShortcuts = true
   ];
 
   if (enableAppShortcuts) {
-    SUPPORTED_APPS.forEach((app) => {
-      features.push({
-        name: `App ${app.name}`,
-        external_id: `${deviceExternalId}:app:${app.id}`,
-        selector: `${deviceExternalId}:app:${app.id}`,
-        category: 'button',
-        type: 'click',
-        min: 0,
-        max: 1,
-        read_only: false,
-        has_feedback: false,
-        keep_history: false,
-      });
+    // One dynamic select for all the apps (category text / type select): the
+    // options are declared per-feature through supported_options, the state is
+    // the selected app id (a string). The per-app 'button'/'click' features of
+    // v1.0 were sensors in Gladys — nothing to press in the UI, so nothing
+    // ever launched.
+    features.push({
+      name: 'Application',
+      external_id: `${deviceExternalId}:app`,
+      selector: `${deviceExternalId}:app`,
+      category: 'text',
+      type: 'select',
+      min: 0,
+      max: 1,
+      read_only: false,
+      has_feedback: true,
+      keep_history: false,
+      supported_options: SUPPORTED_APPS.map((app, index) => ({
+        value: app.id,
+        label: app.name,
+        sort_order: index,
+      })),
     });
   }
 
@@ -165,6 +174,12 @@ export async function handleActionExecution(gladys, actionKey, fields, clientMan
     }
 
     const tvName = trim(fields?.tv_name) || `Android TV (${tvIp})`;
+    const rawMac = trim(fields?.tv_mac);
+    const tvMac = normalizeMac(rawMac);
+    if (rawMac && !tvMac) {
+      throw new Error(`"${rawMac}" is not a valid MAC address. Expected format: 64:E4:D5:B4:12:66.`);
+    }
+
     const client = clientManager.getOrCreateClient(
       currentConfig.tvs?.find((tv) => tv.ip === tvIp) || {
         ip: tvIp,
@@ -175,7 +190,7 @@ export async function handleActionExecution(gladys, actionKey, fields, clientMan
     );
 
     await client.startPairing();
-    clientManager.setPairingTarget(tvIp, tvName);
+    clientManager.setPairingTarget(tvIp, tvName, tvMac);
 
     return {
       en: `A PIN code is now displayed on the screen of the TV at ${tvIp}. Type it in step 2 below and run it right away — the code expires.`,
@@ -198,7 +213,7 @@ export async function handleActionExecution(gladys, actionKey, fields, clientMan
       );
     }
 
-    const { client, ip: tvIp, name: tvName } = target;
+    const { client, ip: tvIp, name: tvName, mac: tvMac } = target;
     const result = await client.submitPin(pin);
 
     if (!result?.certificates?.key || !result?.certificates?.cert) {
@@ -210,6 +225,8 @@ export async function handleActionExecution(gladys, actionKey, fields, clientMan
     const updatedTvEntry = {
       ip: tvIp,
       name: tvName,
+      // A re-pairing without a typed MAC keeps the stored one.
+      mac: tvMac || (tvIndex >= 0 ? updatedTvs[tvIndex].mac : '') || '',
       certificate_key: result.certificates.key,
       certificate_cert: result.certificates.cert,
     };
@@ -230,6 +247,38 @@ export async function handleActionExecution(gladys, actionKey, fields, clientMan
     return {
       en: `${tvName} is paired. Now run a device scan (Discovery tab) to add it to your Gladys devices.`,
       fr: `${tvName} est appairée. Lancez maintenant une recherche d'appareils (onglet Découverte) pour l'ajouter à vos appareils Gladys.`,
+    };
+  }
+
+  if (actionKey === 'set_mac') {
+    const tvIp = trim(fields?.tv_ip);
+    if (!tvIp) {
+      throw new Error('Fill in the IP address of the TV.');
+    }
+
+    const tvs = currentConfig.tvs || [];
+    const tvConfig = tvs.find((tv) => tv.ip === tvIp);
+    if (!tvConfig) {
+      throw new Error(`No TV with the address ${tvIp} is configured.`);
+    }
+
+    const rawMac = trim(fields?.tv_mac);
+    const mac = normalizeMac(rawMac);
+    if (rawMac && !mac) {
+      throw new Error(`"${rawMac}" is not a valid MAC address. Expected format: 64:E4:D5:B4:12:66.`);
+    }
+
+    await gladys.setConfig({ tvs: tvs.map((tv) => (tv.ip === tvIp ? { ...tv, mac } : tv)) });
+
+    if (!mac) {
+      return {
+        en: `The stored MAC address of ${tvConfig.name} (${tvIp}) has been removed: Wake-on-LAN is disabled for this TV.`,
+        fr: `L'adresse MAC enregistrée de ${tvConfig.name} (${tvIp}) a été effacée : le Wake-on-LAN est désactivé pour cette TV.`,
+      };
+    }
+    return {
+      en: `MAC address ${mac} stored for ${tvConfig.name} (${tvIp}). Turning this TV on from Gladys now sends a Wake-on-LAN packet when it is unreachable.`,
+      fr: `Adresse MAC ${mac} enregistrée pour ${tvConfig.name} (${tvIp}). Allumer cette TV depuis Gladys enverra désormais un paquet Wake-on-LAN quand elle est injoignable.`,
     };
   }
 

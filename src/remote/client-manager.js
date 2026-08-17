@@ -1,5 +1,6 @@
 import { logger } from '@gladysassistant/integration-sdk';
 import { AndroidTVClient } from './android-tv-client.js';
+import { SUPPORTED_APPS } from '../devices/apps.js';
 
 // A TV that is powered off stays unreachable for hours: the retry delay
 // doubles on every failed attempt, from 5 seconds up to 2 minutes, and resets
@@ -24,9 +25,10 @@ export class AndroidTVClientManager {
    *
    * @param {string} ip TV IP address.
    * @param {string} name Display name typed by the user.
+   * @param {string} [mac] Normalized MAC address, for Wake-on-LAN.
    */
-  setPairingTarget(ip, name) {
-    this.pairingTarget = { ip, name };
+  setPairingTarget(ip, name, mac = '') {
+    this.pairingTarget = { ip, name, mac };
   }
 
   /**
@@ -207,6 +209,20 @@ export class AndroidTVClientManager {
   }
 
   /**
+   * Retry connecting to a TV soon, forgetting the accumulated backoff.
+   *
+   * Used right after a Wake-on-LAN: the TV was probably unreachable for a
+   * long time (delay at the cap), but it is now booting — the next attempts
+   * must come quickly, not in two minutes.
+   *
+   * @param {string} ip TV IP address.
+   */
+  promptReconnect(ip) {
+    this._cancelReconnect(ip);
+    this.scheduleReconnect(ip);
+  }
+
+  /**
    * Whether a scheduled reconnection makes sense for a TV right now.
    *
    * `client.remote` is set for the whole lifetime of a session, from the
@@ -310,6 +326,16 @@ export class AndroidTVClientManager {
       }
       if (typeof volume?.muted === 'boolean') {
         publish('mute', volume.muted ? 1 : 0);
+      }
+    });
+
+    // The TV reports the package of its foreground app: shown as the current
+    // selection of the application select. An app outside the catalog is not
+    // published — the select would have no matching option to display anyway.
+    client.on('current_app', (appPackage) => {
+      const app = SUPPORTED_APPS.find((supported) => supported.package === appPackage);
+      if (app) {
+        publish('app', { text: app.id });
       }
     });
 

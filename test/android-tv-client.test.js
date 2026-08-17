@@ -227,6 +227,60 @@ test('AndroidTVClient - a lost connection must close the session and report disc
   assert.deepEqual(events, ['disconnected']);
 });
 
+test('AndroidTVClient - an unreachable TV must be reported as switched off, once', () => {
+  const client = new AndroidTVClient({ tv_ip: '192.168.1.50', certificate_key: 'K', certificate_cert: 'C' });
+  const reported = [];
+  client.on('power', (powered) => reported.push(powered));
+
+  client._markUnreachable();
+  client._markUnreachable(); // every failed retry calls it again: no state spam
+
+  assert.equal(client.powered, false);
+  assert.deepEqual(reported, [false]);
+});
+
+test('AndroidTVClient - a session opening without a power report means the TV is awake', async () => {
+  const client = new AndroidTVClient({
+    tv_ip: '192.168.1.50',
+    certificate_key: 'K',
+    certificate_cert: 'C',
+    power_report_grace_ms: 20,
+  });
+  const reported = [];
+  client.on('power', (powered) => reported.push(powered));
+  client.powered = false; // marked off while it was unreachable
+
+  const remote = client._createRemote({ cert: { key: 'K', cert: 'C' } });
+  client.remote = remote;
+  remote.emit('ready');
+
+  // The session invalidates the stale "off": the TV answered the connection.
+  assert.equal(client.powered, null);
+
+  // Mi Box case: no remoteStart report ever comes — the grace delay expires.
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  assert.equal(client.powered, true);
+  assert.deepEqual(reported, [true]);
+  client.disconnect();
+});
+
+test('AndroidTVClient - a TV reporting standby during the grace delay wins over the heuristic', () => {
+  const client = new AndroidTVClient({ tv_ip: '192.168.1.50', certificate_key: 'K', certificate_cert: 'C' });
+  const reported = [];
+  client.on('power', (powered) => reported.push(powered));
+
+  const remote = client._createRemote({ cert: { key: 'K', cert: 'C' } });
+  client.remote = remote;
+  remote.emit('ready');
+  // Network standby: the TV accepts the session and says it is off.
+  remote.emit('powered', false);
+
+  assert.equal(client.powered, false);
+  assert.deepEqual(reported, [false]);
+  client.disconnect();
+  assert.equal(client.powerGraceTimer, null, 'the grace timer must not outlive the session');
+});
+
 /**
  * Build a client with a fake pairing session, recording the submitted code.
  *

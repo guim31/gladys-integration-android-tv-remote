@@ -27,6 +27,7 @@ export function normalizeConfig(rawConfig = {}) {
       tvs.push({
         ip,
         name: readString(tv?.name) || `Android TV (${ip})`,
+        mac: normalizeMac(tv?.mac),
         certificate_key: readString(tv?.certificate_key),
         certificate_cert: readString(tv?.certificate_cert),
       });
@@ -45,6 +46,23 @@ export function normalizeConfig(rawConfig = {}) {
  */
 function readString(value) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+/**
+ * Normalize a MAC address to the canonical aa:bb:cc:dd:ee:ff form.
+ *
+ * TVs display their MAC with colons, dashes or nothing depending on the
+ * brand; all three forms are accepted. Anything else is not a MAC.
+ *
+ * @param {unknown} value MAC address as typed by the user.
+ * @returns {string} The normalized MAC address, or an empty string.
+ */
+export function normalizeMac(value) {
+  const raw = readString(value).replace(/[:\-\s]/g, '');
+  if (!/^[0-9a-fA-F]{12}$/.test(raw)) {
+    return '';
+  }
+  return raw.toLowerCase().match(/.{2}/g).join(':');
 }
 
 /**
