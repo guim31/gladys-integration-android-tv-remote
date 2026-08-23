@@ -6,12 +6,13 @@ import { GladysIntegration, logger } from '@gladysassistant/integration-sdk';
 import { normalizeConfig } from './src/config.js';
 import { AndroidTVClientManager } from './src/remote/client-manager.js';
 import { buildDiscoveredDevices, handleActionExecution } from './src/devices/index.js';
-import { SUPPORTED_APPS } from './src/devices/apps.js';
+import { resolveApps } from './src/devices/apps.js';
+import { sendWakeSequence } from './src/wol.js';
 
 const gladys = new GladysIntegration();
 
 let config = normalizeConfig();
-const clientManager = new AndroidTVClientManager(gladys);
+const clientManager = new AndroidTVClientManager(gladys, () => resolveApps(config));
 
 /**
  * Initialize or re-initialize the connections to every configured Android TV.
@@ -89,7 +90,7 @@ gladys.onSetValue(async (device, feature, value) => {
   // until their owners re-scan.
   if (extId.endsWith(':app') || extId.includes(':app:')) {
     const appId = extId.includes(':app:') ? extId.slice(extId.indexOf(':app:') + 5) : String(value ?? '').trim();
-    const app = SUPPORTED_APPS.find((supported) => supported.id === appId);
+    const app = resolveApps(config).find((supported) => supported.id === appId);
     if (!app) {
       throw new Error(`Unknown app ID: ${appId}`);
     }
@@ -206,8 +207,7 @@ async function wakeTv(tvIp, cause) {
     );
   }
 
-  logger.info(`[AndroidTV] Waking the TV at ${tvIp} with a magic packet to ${tvConfig.mac}...`);
-  await gladys.wakeOnLan(tvConfig.mac);
+  await sendWakeSequence(gladys, tvConfig.mac, tvIp);
   // The TV needs time to boot: the reconnections running in the background
   // pick it up as soon as its network is back.
   clientManager.promptReconnect(tvIp);

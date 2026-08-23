@@ -326,3 +326,56 @@ test('AndroidTVClient - submitPin should reject an obviously truncated PIN', asy
   await assert.rejects(() => client.submitPin('B4'), /too short/);
   assert.equal(state.sent, undefined);
 });
+
+/**
+ * Build a client with a fake live session whose remote manager can report
+ * protocol errors, the way a TV refuses an app launch.
+ *
+ * @returns {Object} The client and its fake remote manager.
+ */
+function createAppLaunchClient() {
+  const client = new AndroidTVClient({
+    tv_ip: '192.168.1.50',
+    certificate_key: 'K',
+    certificate_cert: 'C',
+    app_launch_verdict_ms: 30,
+  });
+  const manager = new EventEmitter();
+  client.remote = {
+    remoteManager: manager,
+    sendAppLink: () => {},
+  };
+  client.isConnected = true;
+  return { client, manager };
+}
+
+test('AndroidTVClient - sendApp should surface the refusal of the TV (app not installed)', async () => {
+  const { client, manager } = createAppLaunchClient();
+
+  // The Spotify case: the TV has no app able to open the link, reports a
+  // remoteError echoing it (and then drops the connection).
+  setImmediate(() =>
+    manager.emit('error', {
+      error: { value: true, message: { remoteAppLinkLaunchRequest: { appLink: 'spotify://' } } },
+    }),
+  );
+
+  await assert.rejects(() => client.sendApp('spotify://'), /refused to open "spotify:\/\/"/);
+  assert.equal(manager.listenerCount('error'), 0, 'the verdict listener must not leak');
+});
+
+test('AndroidTVClient - sendApp should succeed when the TV reports nothing', async () => {
+  const { client, manager } = createAppLaunchClient();
+  await client.sendApp('https://www.netflix.com/title');
+  assert.equal(manager.listenerCount('error'), 0, 'the verdict listener must not leak');
+});
+
+test('AndroidTVClient - sendApp should ignore a protocol error about another message', async () => {
+  const { client, manager } = createAppLaunchClient();
+  setImmediate(() =>
+    manager.emit('error', {
+      error: { value: true, message: { remoteKeyInject: { keyCode: 26 } } },
+    }),
+  );
+  await client.sendApp('https://www.netflix.com/title');
+});
