@@ -14,8 +14,8 @@ Intégration externe officielle pour **Gladys Assistant** permettant de contrôl
   - Boutons de **Navigation (D-Pad)** : Haut, Bas, Gauche, Droite, OK, Retour, Accueil, Menu
   - Contrôle des **Médias** : Lecture, Pause, Stop, Précédent, Suivant, Avancer, Reculer
 - 🔁 **Retour d'état** : l'état marche/arrêt, le volume, la sourdine et l'application au premier plan remontés par la TV sont publiés dans Gladys en temps réel. Une TV qui ne répond plus sur le réseau est marquée éteinte ; un appareil qui accepte la session sans annoncer son état (Mi Box…) est considéré allumé.
-- 🚀 **Lanceur d'Applications (Désactivable)** : un sélecteur par TV pour lancer une application (_YouTube, Netflix, Prime Video, Disney+, Spotify, Plex, Arte, Molotov, myCANAL_), depuis le tableau de bord ou une scène.
-- ⏰ **Wake-on-LAN (Facultatif)** : renseignez l'adresse MAC de la TV et « Allumer » depuis Gladys réveille une TV totalement éteinte via un magic packet, là où le protocole Remote v2 seul ne le permet pas.
+- 🚀 **Lanceur d'Applications (Désactivable et Personnalisable)** : un sélecteur par TV pour lancer une application (_YouTube, Netflix, Prime Video, Disney+, Spotify, Plex, Twitch, Crunchyroll, YouTube Music, Apple TV, Arte, Molotov, myCANAL_), depuis le tableau de bord ou une scène. Masquez les applications que votre TV n'a pas (« Applications à masquer ») et ajoutez les vôtres (« Applications personnalisées », entrées `Nom = lien` séparées par des points-virgules) dans la configuration, puis relancez une recherche d'appareils.
+- ⏰ **Wake-on-LAN (Facultatif)** : renseignez l'adresse MAC de la TV et « Allumer » depuis Gladys réveille une TV totalement éteinte via un magic packet, là où le protocole Remote v2 seul ne le permet pas. Le paquet est envoyé au broadcast du sous-réseau de la TV (ex : `192.168.1.255`), puis en secours au broadcast général `255.255.255.255` et à l'adresse IP de la TV.
 
 ---
 
@@ -41,6 +41,7 @@ Pour **retirer une TV**, utilisez l'action « Retirer une TV appairée » avec s
 - Le protocole n'a pas de commande de volume absolue : le niveau demandé est atteint en répétant les touches volume +/−, sur l'échelle de volume annoncée par la TV.
 - Si la TV est éteinte au démarrage de l'intégration, la connexion est retentée automatiquement, y compris au moment où une commande arrive : elle se rétablit dès que la TV est joignable.
 - **Allumer la TV à distance** via le protocole Remote v2 seul ne fonctionne que si elle est en **veille réseau** (le port reste ouvert en veille sur la plupart des modèles). Pour réveiller une TV **totalement éteinte**, renseignez son **adresse MAC** (visible dans ses paramètres réseau) via l'action « Renseigner l'adresse MAC d'une TV appairée » : « Allumer » depuis Gladys enverra alors un paquet **Wake-on-LAN**. Activez « Wake-on-LAN » / « Réveil réseau » dans les paramètres de la TV si l'option existe (en Wi-Fi, cherchez « Wake-on-WLAN »).
+- **Lancer une application absente de la TV** est refusé par la TV elle-même, qui **coupe la connexion** au passage (elle se rétablit automatiquement quelques secondes plus tard). L'intégration remonte alors une erreur explicite : masquez l'application dans « Applications à masquer », ou corrigez son lien via « Applications personnalisées ».
 - **Migration depuis la v1.0** : les boutons « App … » par application sont remplacés par un sélecteur unique « Application ». Relancez une **recherche d'appareils** et cliquez sur **Mettre à jour** sur chaque TV pour récupérer le sélecteur.
 
 ---

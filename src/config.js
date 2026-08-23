@@ -13,6 +13,8 @@
  * @param {Record<string, unknown>} rawConfig Raw configuration from Gladys.
  * @returns {Object} Normalized configuration object.
  */
+import { slugifyAppName } from './devices/apps.js';
+
 export function normalizeConfig(rawConfig = {}) {
   const source = rawConfig && typeof rawConfig === 'object' ? rawConfig : {};
 
@@ -37,7 +39,56 @@ export function normalizeConfig(rawConfig = {}) {
   return {
     tvs,
     enable_app_shortcuts: readBoolean(source.enable_app_shortcuts, true),
+    hidden_apps: parseHiddenApps(source.hidden_apps),
+    custom_apps: parseCustomApps(source.custom_apps),
   };
+}
+
+/**
+ * Parse the "hidden apps" configuration field: app ids or names separated by
+ * commas, semicolons or new lines ("spotify, Arte ; disneyplus").
+ *
+ * @param {unknown} value Raw configuration value.
+ * @returns {Array<string>} Hidden app ids (slugified, deduplicated).
+ */
+export function parseHiddenApps(value) {
+  const ids = readString(value)
+    .split(/[,;\n]/)
+    .map((entry) => slugifyAppName(entry))
+    .filter(Boolean);
+  return [...new Set(ids)];
+}
+
+/**
+ * Parse the "custom apps" configuration field: one `Name = link` entry per
+ * semicolon or line ("Twitch = twitch://stream ; France TV = https://www.france.tv").
+ *
+ * The link is everything after the FIRST equals sign: URLs carrying query
+ * parameters keep their own `=` untouched. Entries without a name, without a
+ * link, or whose name slugifies to nothing are dropped silently — a config
+ * field has no way to report a per-line error.
+ *
+ * @param {unknown} value Raw configuration value.
+ * @returns {Array<Object>} Custom apps ({ id, name, uri }), first entry wins on duplicate ids.
+ */
+export function parseCustomApps(value) {
+  const apps = [];
+  readString(value)
+    .split(/[;\n]/)
+    .forEach((entry) => {
+      const separator = entry.indexOf('=');
+      if (separator < 0) {
+        return;
+      }
+      const name = entry.slice(0, separator).trim();
+      const uri = entry.slice(separator + 1).trim();
+      const id = slugifyAppName(name);
+      if (!id || !uri || apps.some((app) => app.id === id)) {
+        return;
+      }
+      apps.push({ id, name, uri });
+    });
+  return apps;
 }
 
 /**

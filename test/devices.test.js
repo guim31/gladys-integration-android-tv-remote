@@ -7,7 +7,7 @@ import {
   handleActionExecution,
   REMOTE_KEYS,
 } from '../src/devices/index.js';
-import { SUPPORTED_APPS } from '../src/devices/apps.js';
+import { SUPPORTED_APPS, resolveApps } from '../src/devices/apps.js';
 
 const mockGladys = {
   externalId: (id) => `androidtv:${id}`,
@@ -114,6 +114,41 @@ test('buildDiscoveredDevices - should only publish paired TVs', async () => {
   assert.equal(list.length, 2);
   assert.equal(list[0].name, 'TV Salon');
   assert.equal(list[1].name, 'TV Chambre');
+});
+
+test('resolveApps - should hide catalog apps and append custom ones', () => {
+  const apps = resolveApps({
+    hidden_apps: ['spotify', 'arte'],
+    custom_apps: [{ id: 'francetv', name: 'France TV', uri: 'https://www.france.tv' }],
+  });
+  const ids = apps.map((app) => app.id);
+  assert.ok(!ids.includes('spotify'));
+  assert.ok(!ids.includes('arte'));
+  assert.equal(ids[ids.length - 1], 'francetv');
+});
+
+test('resolveApps - a custom app overriding a catalog entry keeps its package for feedback', () => {
+  const apps = resolveApps({
+    hidden_apps: [],
+    custom_apps: [{ id: 'spotify', name: 'Spotify', uri: 'https://open.spotify.com' }],
+  });
+  const spotify = apps.filter((app) => app.id === 'spotify');
+  assert.equal(spotify.length, 1, 'the catalog entry must be replaced, not doubled');
+  assert.equal(spotify[0].uri, 'https://open.spotify.com');
+  assert.equal(spotify[0].package, 'com.spotify.tv.android');
+});
+
+test('buildDiscoveredDevices - the application select must follow the configured apps', async () => {
+  const config = {
+    tvs: [{ ip: '192.168.1.57', name: 'MiBox', certificate_key: 'K', certificate_cert: 'C' }],
+    enable_app_shortcuts: true,
+    hidden_apps: ['spotify'],
+    custom_apps: [{ id: 'francetv', name: 'France TV', uri: 'https://www.france.tv' }],
+  };
+  const devices = await buildDiscoveredDevices(mockGladys, config);
+  const options = devices[0].features.find((f) => f.external_id.endsWith(':app')).supported_options;
+  assert.ok(!options.some((option) => option.value === 'spotify'));
+  assert.ok(options.some((option) => option.value === 'francetv'));
 });
 
 test('SUPPORTED_APPS - should contain major TV streaming apps', () => {

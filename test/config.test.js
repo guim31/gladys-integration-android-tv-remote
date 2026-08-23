@@ -1,11 +1,44 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeConfig, normalizeMac } from '../src/config.js';
+import { normalizeConfig, normalizeMac, parseHiddenApps, parseCustomApps } from '../src/config.js';
 
 test('normalizeConfig - should not invent a TV when nothing is configured', () => {
   const normalized = normalizeConfig({});
   assert.deepEqual(normalized.tvs, []);
   assert.equal(normalized.enable_app_shortcuts, true);
+  assert.deepEqual(normalized.hidden_apps, []);
+  assert.deepEqual(normalized.custom_apps, []);
+});
+
+test('parseHiddenApps - should accept names and ids, in any usual separator', () => {
+  assert.deepEqual(parseHiddenApps('Spotify, Arte ; disneyplus\nPrime Video'), [
+    'spotify',
+    'arte',
+    'disneyplus',
+    'primevideo',
+  ]);
+  assert.deepEqual(parseHiddenApps(' spotify , spotify '), ['spotify']);
+  assert.deepEqual(parseHiddenApps(undefined), []);
+});
+
+test('parseCustomApps - should parse "Name = link" entries', () => {
+  assert.deepEqual(parseCustomApps('Twitch = twitch://stream ; France TV = https://www.france.tv'), [
+    { id: 'twitch', name: 'Twitch', uri: 'twitch://stream' },
+    { id: 'francetv', name: 'France TV', uri: 'https://www.france.tv' },
+  ]);
+});
+
+test('parseCustomApps - should keep the equals signs of the link itself', () => {
+  assert.deepEqual(parseCustomApps('Ma chaîne = https://www.youtube.com/watch?v=abc&t=10'), [
+    { id: 'machaine', name: 'Ma chaîne', uri: 'https://www.youtube.com/watch?v=abc&t=10' },
+  ]);
+});
+
+test('parseCustomApps - should drop incomplete or duplicated entries', () => {
+  assert.deepEqual(parseCustomApps('sans lien ; = https://orphan.example ; VLC = vlc:// ; VLC = other://'), [
+    { id: 'vlc', name: 'VLC', uri: 'vlc://' },
+  ]);
+  assert.deepEqual(parseCustomApps(undefined), []);
 });
 
 test('normalizeConfig - should preserve provided multi-TV config values', () => {

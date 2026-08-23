@@ -6,6 +6,10 @@ const { AndroidRemote, RemoteKeyCode, RemoteDirection } = AndroidRemotePkg;
 const PAIRING_TIMEOUT_MS = 25000;
 const CONNECT_TIMEOUT_MS = 15000;
 const VOLUME_STEP_DELAY_MS = 40;
+// Time left to the TV to refuse an app launch. A launch that succeeds is
+// never acked, but a TV that cannot open the link answers with a
+// remoteError within a few hundred milliseconds.
+const APP_LAUNCH_VERDICT_MS = 1500;
 // Time left to the TV to report its power state after the session opens.
 // Google TVs send it right away; devices that never do (Mi Box...) are
 // considered awake — they answered the connection.
@@ -61,8 +65,9 @@ export class AndroidTVClient {
     this.generatedCertificates = null;
     this.listeners = new Map();
     this.powerGraceTimer = null;
-    // Overridable for tests: the production value waits several seconds.
+    // Overridable for tests: the production values wait for seconds.
     this.powerGraceMs = config.power_report_grace_ms || POWER_REPORT_GRACE_MS;
+    this.appLaunchVerdictMs = config.app_launch_verdict_ms || APP_LAUNCH_VERDICT_MS;
 
     // Last state reported by the TV. `null` means "never reported yet".
     this.powered = null;
@@ -456,10 +461,47 @@ export class AndroidTVClient {
     this._assertConnected();
 
     logger.info(`[AndroidTV] Opening app ${appUriOrPackage} on ${this.ip}`);
-    if (typeof this.remote.sendAppLink === 'function') {
-      return this.remote.sendAppLink(appUriOrPackage);
+    if (typeof this.remote.sendAppLink !== 'function') {
+      throw new Error('Application launcher is not supported by the current client library version.');
     }
-    throw new Error('Application launcher is not supported by the current client library version.');
+
+    const manager = this.remote.remoteManager;
+    this.remote.sendAppLink(appUriOrPackage);
+
+    // A launch that works is never acked, but a TV that cannot open the link
+    // (the app is not installed) reports a remoteError echoing the link — and
+    // then drops the connection. Waiting for that verdict turns a silent
+    // "success" followed by a dead session into an actionable error message.
+    if (!manager || typeof manager.on !== 'function') {
+      return undefined;
+    }
+
+    return new Promise((resolve, reject) => {
+      const onError = (err) => {
+        const refusedLink = err?.error?.message?.remoteAppLinkLaunchRequest?.appLink;
+        if (refusedLink !== appUriOrPackage) {
+          return;
+        }
+        cleanup();
+        reject(
+          new Error(
+            `The TV at ${this.ip} refused to open "${appUriOrPackage}". ` +
+              'The application is probably not installed on this TV — hide it from the launcher, ' +
+              'or fix its link, in the integration configuration.',
+          ),
+        );
+      };
+      // Never unref'd: this short timer is what settles the command's promise.
+      const timer = setTimeout(() => {
+        cleanup();
+        resolve(undefined);
+      }, this.appLaunchVerdictMs);
+      const cleanup = () => {
+        clearTimeout(timer);
+        manager.removeListener('error', onError);
+      };
+      manager.on('error', onError);
+    });
   }
 
   /**

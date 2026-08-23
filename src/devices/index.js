@@ -1,5 +1,5 @@
 import { logger } from '@gladysassistant/integration-sdk';
-import { SUPPORTED_APPS } from './apps.js';
+import { resolveApps } from './apps.js';
 import { normalizeMac } from '../config.js';
 
 /**
@@ -35,9 +35,10 @@ export const REMOTE_KEYS = [
  * @param {Object} gladys Gladys integration SDK instance.
  * @param {Object} tvConfig TV configuration ({ ip, name, certificate_key, certificate_cert }).
  * @param {boolean} enableAppShortcuts Whether app shortcut features are enabled.
+ * @param {Array<Object>} apps Apps offered by the application select.
  * @returns {Object} Gladys Device object.
  */
-export function buildAndroidTVDevice(gladys, tvConfig, enableAppShortcuts = true) {
+export function buildAndroidTVDevice(gladys, tvConfig, enableAppShortcuts = true, apps = resolveApps()) {
   const ip = tvConfig.ip;
   const ipSanitized = String(ip).replace(/[^a-zA-Z0-9]/g, '_');
   const deviceExternalId = gladys.externalId(`tv:${ipSanitized}`);
@@ -109,7 +110,7 @@ export function buildAndroidTVDevice(gladys, tvConfig, enableAppShortcuts = true
       read_only: false,
       has_feedback: true,
       keep_history: false,
-      supported_options: SUPPORTED_APPS.map((app, index) => ({
+      supported_options: apps.map((app, index) => ({
         value: app.id,
         label: app.name,
         sort_order: index,
@@ -148,7 +149,7 @@ export async function buildDiscoveredDevices(gladys, config) {
     logger.info(`[AndroidTV] Publishing ${paired.length} paired TV(s).`);
   }
 
-  return paired.map((tv) => buildAndroidTVDevice(gladys, tv, config.enable_app_shortcuts));
+  return paired.map((tv) => buildAndroidTVDevice(gladys, tv, config.enable_app_shortcuts, resolveApps(config)));
 }
 
 /**
