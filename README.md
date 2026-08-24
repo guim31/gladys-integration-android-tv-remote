@@ -48,7 +48,7 @@ Pour **retirer une TV**, utilisez l'action « Retirer une TV appairée » avec s
 
 ## 🐳 Déploiement Docker
 
-L'image Docker multi-architecture (`amd64`, `arm64`, `arm/v7`) est automatiquement construite via GitHub Actions.
+L'image Docker multi-architecture (`amd64`, `arm64`, `arm/v7`) est automatiquement construite via GitHub Actions. Chaque merge sur `main` publie l'image versionnée annoncée par le manifeste (`gladys-assistant-integration.json`) : pensez à y **incrémenter la version** dans toute PR qui change le comportement, c'est elle qui déclenche la proposition de mise à jour côté Gladys.
 
 En usage normal, c'est **Gladys qui démarre le conteneur** : rien à lancer à la main. La commande ci-dessous ne sert qu'au débogage en dehors de Gladys.
 
@@ -58,12 +58,12 @@ docker run -d \
   -e GLADYS_HOST_API_URL=http://localhost:8080 \
   -e GLADYS_INTEGRATION_TOKEN=your_token_here \
   -e GLADYS_INTEGRATION_SELECTOR=android-tv-remote \
-  ghcr.io/guim31/gladys-integration-android-tv-remote:1.1.0
+  ghcr.io/guim31/gladys-integration-android-tv-remote:1.2.0
 ```
 
 | Tag       | Contenu                                                      |
 | --------- | ------------------------------------------------------------ |
-| `:1.1.0`  | Version figée — **recommandé**                               |
+| `:1.2.0`  | Version figée — **recommandé**                               |
 | `:latest` | Dernier état stable de la branche `main`                     |
 | `:dev`    | Dernier build de la branche `dev` — pour tester, peut casser |
 
