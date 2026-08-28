@@ -30,6 +30,19 @@ export const REMOTE_KEYS = [
 ];
 
 /**
+ * Build the external-id fragment identifying a TV, from its IP address.
+ *
+ * The mapping must stay stable across versions: it is what ties the Gladys
+ * device of a TV back to its configuration entry.
+ *
+ * @param {unknown} ip The TV IP address.
+ * @returns {string} The sanitized fragment (192.168.1.50 -> 192_168_1_50).
+ */
+export function sanitizeIpForExternalId(ip) {
+  return String(ip).replace(/[^a-zA-Z0-9]/g, '_');
+}
+
+/**
  * Build the device payload of an Android TV.
  *
  * @param {Object} gladys Gladys integration SDK instance.
@@ -40,8 +53,7 @@ export const REMOTE_KEYS = [
  */
 export function buildAndroidTVDevice(gladys, tvConfig, enableAppShortcuts = true, apps = resolveApps()) {
   const ip = tvConfig.ip;
-  const ipSanitized = String(ip).replace(/[^a-zA-Z0-9]/g, '_');
-  const deviceExternalId = gladys.externalId(`tv:${ipSanitized}`);
+  const deviceExternalId = gladys.externalId(`tv:${sanitizeIpForExternalId(ip)}`);
   const deviceName = tvConfig.name || `Android TV (${ip})`;
 
   const features = [
@@ -252,16 +264,12 @@ export async function handleActionExecution(gladys, actionKey, fields, clientMan
   }
 
   if (actionKey === 'set_mac') {
-    const tvIp = trim(fields?.tv_ip);
-    if (!tvIp) {
-      throw new Error('Fill in the IP address of the TV.');
-    }
-
-    const tvs = currentConfig.tvs || [];
-    const tvConfig = tvs.find((tv) => tv.ip === tvIp);
+    const tvConfig = resolveTargetTv(fields, currentConfig);
     if (!tvConfig) {
-      throw new Error(`No TV with the address ${tvIp} is configured.`);
+      throw new Error('Pick the TV in the list, or fill in its IP address.');
     }
+    const tvIp = tvConfig.ip;
+    const tvs = currentConfig.tvs || [];
 
     const rawMac = trim(fields?.tv_mac);
     const mac = normalizeMac(rawMac);
@@ -284,16 +292,12 @@ export async function handleActionExecution(gladys, actionKey, fields, clientMan
   }
 
   if (actionKey === 'remove_tv') {
-    const tvIp = trim(fields?.tv_ip);
-    if (!tvIp) {
-      throw new Error('Fill in the IP address of the TV you want to remove.');
-    }
-
-    const tvs = currentConfig.tvs || [];
-    const tvConfig = tvs.find((tv) => tv.ip === tvIp);
+    const tvConfig = resolveTargetTv(fields, currentConfig);
     if (!tvConfig) {
-      throw new Error(`No TV with the address ${tvIp} is configured.`);
+      throw new Error('Pick the TV to remove in the list, or fill in its IP address.');
     }
+    const tvIp = tvConfig.ip;
+    const tvs = currentConfig.tvs || [];
 
     await gladys.setConfig({ tvs: tvs.filter((tv) => tv.ip !== tvIp) });
     clientManager.removeClient(tvIp);
@@ -306,13 +310,13 @@ export async function handleActionExecution(gladys, actionKey, fields, clientMan
   }
 
   if (actionKey === 'test_connection') {
-    const tvIp = trim(fields?.tv_ip) || currentConfig.tvs?.[0]?.ip;
-    if (!tvIp) {
+    const tvConfig = resolveTargetTv(fields, currentConfig) || currentConfig.tvs?.[0];
+    if (!tvConfig) {
       throw new Error('No TV is paired yet. Run step 1 and step 2 first.');
     }
+    const tvIp = tvConfig.ip;
 
-    const tvConfig = currentConfig.tvs?.find((tv) => tv.ip === tvIp);
-    if (!tvConfig || !tvConfig.certificate_key || !tvConfig.certificate_cert) {
+    if (!tvConfig.certificate_key || !tvConfig.certificate_cert) {
       throw new Error(`The TV at ${tvIp} is not paired yet. Run step 1 and step 2 for this address first.`);
     }
 
@@ -336,6 +340,46 @@ export async function handleActionExecution(gladys, actionKey, fields, clientMan
   }
 
   throw new Error(`Unknown action: ${actionKey}`);
+}
+
+/**
+ * Resolve the TV an action targets: the device picked in the `tv_device`
+ * select (`source: "devices"` — its value is the device external_id), or the
+ * `tv_ip` fallback field for a TV paired but not yet added as a device.
+ *
+ * @param {Object} fields Values of the action mini-form.
+ * @param {Object} currentConfig Normalized configuration.
+ * @returns {Object|undefined} The configuration entry of the TV, or undefined
+ * when neither field is filled in.
+ */
+function resolveTargetTv(fields, currentConfig) {
+  const tvs = currentConfig.tvs || [];
+
+  const deviceExternalId = trim(fields?.tv_device);
+  if (deviceExternalId) {
+    // The device external_id embeds the sanitized IP: ext:<selector>:tv:192_168_1_50.
+    const marker = ':tv:';
+    const markerIndex = deviceExternalId.lastIndexOf(marker);
+    const idFragment = markerIndex >= 0 ? deviceExternalId.slice(markerIndex + marker.length) : '';
+    const tvConfig = tvs.find((tv) => sanitizeIpForExternalId(tv.ip) === idFragment);
+    if (!tvConfig) {
+      throw new Error(
+        `The selected device (${deviceExternalId}) matches no paired TV. ` +
+          'It was probably removed already: delete the device from its own page, or use the IP address field.',
+      );
+    }
+    return tvConfig;
+  }
+
+  const tvIp = trim(fields?.tv_ip);
+  if (!tvIp) {
+    return undefined;
+  }
+  const tvConfig = tvs.find((tv) => tv.ip === tvIp);
+  if (!tvConfig) {
+    throw new Error(`No TV with the address ${tvIp} is configured.`);
+  }
+  return tvConfig;
 }
 
 /**
