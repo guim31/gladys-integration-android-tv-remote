@@ -124,7 +124,10 @@ docker run -d \
    ```
 
 4. Le workflow `deploy.yml` construit et publie automatiquement les images
-   `:1.0.4`, `:v1.0.4` et `:latest`.
+   `:1.0.4`, `:v1.0.4` et `:latest`, et le workflow `release.yml` crée la
+   release GitHub du tag. Son corps vient de
+   `.github/release-notes/vX.Y.Z.md` (à ajouter dans la PR de release) ;
+   à défaut, du message du tag annoté, sinon des notes générées par GitHub.
 5. Répercuter la nouvelle version dans le `docker run` du `README.md`.
 
 ---
