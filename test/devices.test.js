@@ -7,7 +7,7 @@ import {
   handleActionExecution,
   REMOTE_KEYS,
 } from '../src/devices/index.js';
-import { SUPPORTED_APPS } from '../src/devices/apps.js';
+import { SUPPORTED_APPS, resolveApps } from '../src/devices/apps.js';
 
 const mockGladys = {
   externalId: (id) => `androidtv:${id}`,
@@ -114,6 +114,41 @@ test('buildDiscoveredDevices - should only publish paired TVs', async () => {
   assert.equal(list.length, 2);
   assert.equal(list[0].name, 'TV Salon');
   assert.equal(list[1].name, 'TV Chambre');
+});
+
+test('resolveApps - should hide catalog apps and append custom ones', () => {
+  const apps = resolveApps({
+    hidden_apps: ['spotify', 'arte'],
+    custom_apps: [{ id: 'francetv', name: 'France TV', uri: 'https://www.france.tv' }],
+  });
+  const ids = apps.map((app) => app.id);
+  assert.ok(!ids.includes('spotify'));
+  assert.ok(!ids.includes('arte'));
+  assert.equal(ids[ids.length - 1], 'francetv');
+});
+
+test('resolveApps - a custom app overriding a catalog entry keeps its package for feedback', () => {
+  const apps = resolveApps({
+    hidden_apps: [],
+    custom_apps: [{ id: 'spotify', name: 'Spotify', uri: 'https://open.spotify.com' }],
+  });
+  const spotify = apps.filter((app) => app.id === 'spotify');
+  assert.equal(spotify.length, 1, 'the catalog entry must be replaced, not doubled');
+  assert.equal(spotify[0].uri, 'https://open.spotify.com');
+  assert.equal(spotify[0].package, 'com.spotify.tv.android');
+});
+
+test('buildDiscoveredDevices - the application select must follow the configured apps', async () => {
+  const config = {
+    tvs: [{ ip: '192.168.1.57', name: 'MiBox', certificate_key: 'K', certificate_cert: 'C' }],
+    enable_app_shortcuts: true,
+    hidden_apps: ['spotify'],
+    custom_apps: [{ id: 'francetv', name: 'France TV', uri: 'https://www.france.tv' }],
+  };
+  const devices = await buildDiscoveredDevices(mockGladys, config);
+  const options = devices[0].features.find((f) => f.external_id.endsWith(':app')).supported_options;
+  assert.ok(!options.some((option) => option.value === 'spotify'));
+  assert.ok(options.some((option) => option.value === 'francetv'));
 });
 
 test('SUPPORTED_APPS - should contain major TV streaming apps', () => {
@@ -388,11 +423,23 @@ test('handleActionExecution - remove_tv should require an IP address', async () 
   await assert.rejects(() => handleActionExecution(mockGladys, 'remove_tv', {}, manager, { tvs: [] }), /IP address/);
 });
 
-test('handleActionExecution - test_connection should refuse an unpaired TV', async () => {
+test('handleActionExecution - test_connection should refuse an unknown TV', async () => {
   const manager = createManagerMock({ isConnected: false, connect: async () => true });
 
   await assert.rejects(
     () => handleActionExecution(mockGladys, 'test_connection', { tv_ip: '192.168.1.50' }, manager, { tvs: [] }),
+    /No TV with the address/,
+  );
+});
+
+test('handleActionExecution - test_connection should refuse an unpaired TV', async () => {
+  const manager = createManagerMock({ isConnected: false, connect: async () => true });
+
+  await assert.rejects(
+    () =>
+      handleActionExecution(mockGladys, 'test_connection', { tv_ip: '192.168.1.50' }, manager, {
+        tvs: [{ ip: '192.168.1.50', name: 'TV Salon' }],
+      }),
     /not paired/,
   );
 });
@@ -413,4 +460,119 @@ test('handleActionExecution - test_connection should default to the first paired
 
   assert.ok(connected);
   assert.ok(result.fr.includes('TV Salon'));
+});
+
+// ---------------------------------------------------------------------------
+// TV selector (`tv_device`, select source "devices"): the field value is the
+// device external_id, whose sanitized-IP fragment ties back to the config.
+// ---------------------------------------------------------------------------
+
+test('handleActionExecution - set_mac should accept the TV picked in the device selector', async () => {
+  const saved = [];
+  const gladys = { ...mockGladys, setConfig: async (partial) => saved.push(partial) };
+  const manager = createManagerMock({});
+  const config = {
+    tvs: [
+      { ip: '192.168.1.50', name: 'TV Salon', mac: '', certificate_key: 'K1', certificate_cert: 'C1' },
+      { ip: '192.168.1.51', name: 'TV Chambre', mac: '', certificate_key: 'K2', certificate_cert: 'C2' },
+    ],
+  };
+
+  const result = await handleActionExecution(
+    gladys,
+    'set_mac',
+    { tv_device: 'androidtv:tv:192_168_1_51', tv_mac: '64E4D5B41266' },
+    manager,
+    config,
+  );
+
+  assert.equal(saved[0].tvs[1].mac, '64:e4:d5:b4:12:66');
+  assert.equal(saved[0].tvs[0].mac, '');
+  assert.ok(result.fr.includes('TV Chambre'));
+});
+
+test('handleActionExecution - remove_tv should accept the TV picked in the device selector', async () => {
+  const saved = [];
+  const gladys = { ...mockGladys, setConfig: async (partial) => saved.push(partial) };
+  const manager = createManagerMock({});
+  const config = {
+    tvs: [
+      { ip: '192.168.1.50', name: 'TV Salon', certificate_key: 'K1', certificate_cert: 'C1' },
+      { ip: '192.168.1.51', name: 'TV Chambre', certificate_key: 'K2', certificate_cert: 'C2' },
+    ],
+  };
+
+  const result = await handleActionExecution(
+    gladys,
+    'remove_tv',
+    { tv_device: 'androidtv:tv:192_168_1_50' },
+    manager,
+    config,
+  );
+
+  assert.equal(saved[0].tvs.length, 1);
+  assert.equal(saved[0].tvs[0].ip, '192.168.1.51');
+  assert.deepEqual(manager.removedClients, ['192.168.1.50']);
+  assert.ok(result.fr.includes('TV Salon'));
+});
+
+test('handleActionExecution - test_connection should accept the TV picked in the device selector', async () => {
+  let connected = false;
+  const manager = createManagerMock({
+    isConnected: false,
+    connect: async () => {
+      connected = true;
+      return true;
+    },
+  });
+
+  const result = await handleActionExecution(
+    mockGladys,
+    'test_connection',
+    { tv_device: 'androidtv:tv:10_0_0_9' },
+    manager,
+    {
+      tvs: [
+        { ip: '192.168.1.50', name: 'TV Salon', certificate_key: 'K1', certificate_cert: 'C1' },
+        { ip: '10.0.0.9', name: 'MiBox', certificate_key: 'K2', certificate_cert: 'C2' },
+      ],
+    },
+  );
+
+  assert.ok(connected);
+  assert.ok(result.fr.includes('MiBox'));
+});
+
+test('handleActionExecution - a selected device matching no paired TV must be explained', async () => {
+  const manager = createManagerMock({});
+  await assert.rejects(
+    () =>
+      handleActionExecution(mockGladys, 'remove_tv', { tv_device: 'androidtv:tv:192_168_1_99' }, manager, {
+        tvs: [{ ip: '192.168.1.50', name: 'TV Salon', certificate_key: 'K', certificate_cert: 'C' }],
+      }),
+    /matches no paired TV/,
+  );
+});
+
+test('handleActionExecution - the device selector takes precedence over the IP fallback', async () => {
+  const saved = [];
+  const gladys = { ...mockGladys, setConfig: async (partial) => saved.push(partial) };
+  const manager = createManagerMock({});
+  const config = {
+    tvs: [
+      { ip: '192.168.1.50', name: 'TV Salon', mac: '', certificate_key: 'K1', certificate_cert: 'C1' },
+      { ip: '192.168.1.51', name: 'TV Chambre', mac: '', certificate_key: 'K2', certificate_cert: 'C2' },
+    ],
+  };
+
+  await handleActionExecution(
+    gladys,
+    'set_mac',
+    { tv_device: 'androidtv:tv:192_168_1_50', tv_ip: '192.168.1.51', tv_mac: '64E4D5B41266' },
+    manager,
+    config,
+  );
+
+  assert.equal(saved[0].tvs[0].mac, '64:e4:d5:b4:12:66');
+  assert.equal(saved[0].tvs[1].mac, '');
 });

@@ -1,6 +1,6 @@
 import { logger } from '@gladysassistant/integration-sdk';
 import { AndroidTVClient } from './android-tv-client.js';
-import { SUPPORTED_APPS } from '../devices/apps.js';
+import { resolveApps } from '../devices/apps.js';
 
 // A TV that is powered off stays unreachable for hours: the retry delay
 // doubles on every failed attempt, from 5 seconds up to 2 minutes, and resets
@@ -9,8 +9,12 @@ export const RECONNECT_INITIAL_DELAY_MS = 5 * 1000;
 export const RECONNECT_MAX_DELAY_MS = 2 * 60 * 1000;
 
 export class AndroidTVClientManager {
-  constructor(gladys) {
+  constructor(gladys, getApps = () => resolveApps()) {
     this.gladys = gladys;
+    // Returns the CURRENT app list on each call: the configuration (hidden
+    // and custom apps) can change at any time, a list captured at build time
+    // would go stale.
+    this.getApps = getApps;
     this.clients = new Map();
     // TV going through the pairing sequence, remembered between step 1 and
     // step 2 so the PIN action does not have to ask for the address again.
@@ -333,7 +337,7 @@ export class AndroidTVClientManager {
     // selection of the application select. An app outside the catalog is not
     // published — the select would have no matching option to display anyway.
     client.on('current_app', (appPackage) => {
-      const app = SUPPORTED_APPS.find((supported) => supported.package === appPackage);
+      const app = this.getApps().find((supported) => supported.package === appPackage);
       if (app) {
         publish('app', { text: app.id });
       }
