@@ -30,7 +30,9 @@ Tout ce que vous avez à saisir se trouve **dans les actions elles-mêmes** : ri
 
 Pour appairer une **seconde TV**, reprenez à l'étape 1 avec sa propre adresse IP : les TV déjà appairées sont conservées.
 
-Pour **retirer une TV**, utilisez l'action « Retirer une TV appairée » avec son adresse IP : ses certificats sont supprimés (l'appareil Gladys correspondant, lui, se supprime depuis sa propre page).
+Pour **retirer une TV**, utilisez l'action « Retirer une TV appairée » en choisissant la TV dans la liste : ses certificats sont supprimés (l'appareil Gladys correspondant, lui, se supprime depuis sa propre page).
+
+Les actions « Renseigner l'adresse MAC », « Retirer une TV appairée » et « Tester la connexion » proposent un **sélecteur listant vos TV** (les appareils créés de l'intégration) : plus d'adresse IP à retaper. Le champ « Adresse IP (secours) » ne sert que pour une TV appairée mais **pas encore ajoutée comme appareil** — elle n'apparaît pas encore dans la liste.
 
 > ℹ️ Seules les TV **déjà appairées** apparaissent lors de la recherche. Une TV sans certificat ne pourrait recevoir aucune commande.
 
@@ -41,6 +43,7 @@ Pour **retirer une TV**, utilisez l'action « Retirer une TV appairée » avec s
 - Le protocole n'a pas de commande de volume absolue : le niveau demandé est atteint en répétant les touches volume +/−, sur l'échelle de volume annoncée par la TV.
 - Si la TV est éteinte au démarrage de l'intégration, la connexion est retentée automatiquement, y compris au moment où une commande arrive : elle se rétablit dès que la TV est joignable.
 - **Allumer la TV à distance** via le protocole Remote v2 seul ne fonctionne que si elle est en **veille réseau** (le port reste ouvert en veille sur la plupart des modèles). Pour réveiller une TV **totalement éteinte**, renseignez son **adresse MAC** (visible dans ses paramètres réseau) via l'action « Renseigner l'adresse MAC d'une TV appairée » : « Allumer » depuis Gladys enverra alors un paquet **Wake-on-LAN**. Activez « Wake-on-LAN » / « Réveil réseau » dans les paramètres de la TV si l'option existe (en Wi-Fi, cherchez « Wake-on-WLAN »).
+- **Le Wake-on-LAN a une condition matérielle** : la carte réseau de l'appareil doit **rester alimentée quand il est éteint**. C'est généralement le cas de l'Ethernet intégré des TV, rarement du Wi-Fi, et **jamais d'un adaptateur USB-Ethernet** (Mi Box + adaptateur ugreen par exemple) : la plupart des boîtiers coupent l'alimentation du bus USB à l'extinction, l'adaptateur disparaît du réseau et aucun magic packet ne peut le réveiller. Dans ce cas, laissez le boîtier en **veille réseau** (le protocole Remote v2 suffit alors à le rallumer) plutôt que de l'éteindre complètement.
 - **Lancer une application absente de la TV** est refusé par la TV elle-même, qui **coupe la connexion** au passage (elle se rétablit automatiquement quelques secondes plus tard). L'intégration remonte alors une erreur explicite : masquez l'application dans « Applications à masquer », ou corrigez son lien via « Applications personnalisées ».
 - **Migration depuis la v1.0** : les boutons « App … » par application sont remplacés par un sélecteur unique « Application ». Relancez une **recherche d'appareils** et cliquez sur **Mettre à jour** sur chaque TV pour récupérer le sélecteur.
 
@@ -58,12 +61,12 @@ docker run -d \
   -e GLADYS_HOST_API_URL=http://localhost:8080 \
   -e GLADYS_INTEGRATION_TOKEN=your_token_here \
   -e GLADYS_INTEGRATION_SELECTOR=android-tv-remote \
-  ghcr.io/guim31/gladys-integration-android-tv-remote:1.2.0
+  ghcr.io/guim31/gladys-integration-android-tv-remote:1.3.0
 ```
 
 | Tag       | Contenu                                                      |
 | --------- | ------------------------------------------------------------ |
-| `:1.2.0`  | Version figée — **recommandé**                               |
+| `:1.3.0`  | Version figée — **recommandé**                               |
 | `:latest` | Dernier état stable de la branche `main`                     |
 | `:dev`    | Dernier build de la branche `dev` — pour tester, peut casser |
 
@@ -112,6 +115,16 @@ La TV est totalement hors tension, a changé d'adresse IP, ou n'est pas sur le m
 
 - L'allumage à distance sans Wake-on-LAN ne fonctionne que si la TV est en **veille réseau** ; renseignez l'**adresse MAC** de la TV pour réveiller une TV totalement éteinte (voir [Bon à savoir](#bon-à-savoir)).
 - Si l'adresse IP de la TV a changé, l'appareil Gladys ne la retrouvera pas : mettez une **réservation DHCP** en place, puis ré-appairez si nécessaire.
+
+### La TV n'apparaît pas dans le champ « Appareil » d'un widget ou d'une scène
+
+L'appareil créé par l'intégration est un appareil Gladys comme un autre : il est éligible aux widgets du tableau de bord (Télévision, Appareils dans une pièce…) et aux actions de scène. S'il semble absent du champ « Appareil » :
+
+- Le filtre de ce champ cherche dans le **nom de l'appareil** : tapez un fragment du nom tel qu'il apparaît dans l'onglet Appareils de l'intégration (ex : `Android TV` avec l'espace, ou un bout de l'IP), ou videz le champ de recherche et parcourez la liste complète.
+- Donnez un **nom simple** à la TV à l'étape 1 de l'appairage (ex : `TV Salon`) : il se retrouve plus facilement que le nom par défaut `Android TV (192.168.1.50)`.
+- Vérifiez que l'appareil est bien **associé à une pièce** : certains widgets listent les appareils par pièce.
+
+Si le champ ne retrouve vraiment pas un appareil qui existe (il apparaît dans la liste complète mais pas via la recherche), c'est un bug du **filtre de l'interface Gladys**, pas de l'intégration : signalez-le sur le forum avec le nom exact de l'appareil et le texte tapé, pour qu'il soit corrigé côté Gladys.
 
 ### La TV est éteinte : que fait l'intégration ?
 

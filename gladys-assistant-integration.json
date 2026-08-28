@@ -6,8 +6,8 @@
     "en": "Gladys Assistant integration for Android TV and Google TV using Remote v2 protocol.",
     "fr": "Intégration Gladys Assistant pour Android TV et Google TV via le protocole Remote v2."
   },
-  "version": "1.2.0",
-  "docker_image": "ghcr.io/guim31/gladys-integration-android-tv-remote:1.2.0",
+  "version": "1.3.0",
+  "docker_image": "ghcr.io/guim31/gladys-integration-android-tv-remote:1.3.0",
   "gladys_version": ">=4.86.0",
   "cover_image": "https://raw.githubusercontent.com/guim31/gladys-integration-android-tv-remote/main/cover.png",
   "transports": ["local"],
@@ -124,14 +124,25 @@
       "timeout_seconds": 30,
       "fields": [
         {
+          "key": "tv_device",
+          "type": "select",
+          "source": "devices",
+          "label": { "en": "TV", "fr": "TV" },
+          "description": {
+            "en": "Pick the TV among your created devices.",
+            "fr": "Choisissez la TV parmi vos appareils créés."
+          },
+          "required": false
+        },
+        {
           "key": "tv_ip",
           "type": "string",
-          "label": { "en": "TV IP address", "fr": "Adresse IP de la TV" },
+          "label": { "en": "TV IP address (fallback)", "fr": "Adresse IP de la TV (secours)" },
           "description": {
-            "en": "Local IP address of an already paired TV.",
-            "fr": "Adresse IP locale d'une TV déjà appairée."
+            "en": "Only if the TV does not appear in the list above (paired but not yet added as a device).",
+            "fr": "Uniquement si la TV n'apparaît pas dans la liste ci-dessus (appairée mais pas encore ajoutée comme appareil)."
           },
-          "required": true
+          "required": false
         },
         {
           "key": "tv_mac",
@@ -151,14 +162,25 @@
       "timeout_seconds": 30,
       "fields": [
         {
+          "key": "tv_device",
+          "type": "select",
+          "source": "devices",
+          "label": { "en": "TV", "fr": "TV" },
+          "description": {
+            "en": "Pick the TV to remove. Its certificates are deleted; pair it again to get it back.",
+            "fr": "Choisissez la TV à retirer. Ses certificats sont supprimés ; refaites l'appairage pour la retrouver."
+          },
+          "required": false
+        },
+        {
           "key": "tv_ip",
           "type": "string",
-          "label": { "en": "TV IP address", "fr": "Adresse IP de la TV" },
+          "label": { "en": "TV IP address (fallback)", "fr": "Adresse IP de la TV (secours)" },
           "description": {
-            "en": "Local IP address of the TV to remove. Its certificates are deleted; pair it again to get it back.",
-            "fr": "Adresse IP locale de la TV à retirer. Ses certificats sont supprimés ; refaites l'appairage pour la retrouver."
+            "en": "Only if the TV does not appear in the list above (paired but not yet added as a device).",
+            "fr": "Uniquement si la TV n'apparaît pas dans la liste ci-dessus (appairée mais pas encore ajoutée comme appareil)."
           },
-          "required": true
+          "required": false
         }
       ]
     },
@@ -168,12 +190,23 @@
       "timeout_seconds": 30,
       "fields": [
         {
-          "key": "tv_ip",
-          "type": "string",
-          "label": { "en": "TV IP address (optional)", "fr": "Adresse IP de la TV (facultatif)" },
+          "key": "tv_device",
+          "type": "select",
+          "source": "devices",
+          "label": { "en": "TV (optional)", "fr": "TV (facultatif)" },
           "description": {
             "en": "Leave empty to test the first paired TV.",
             "fr": "Laissez vide pour tester la première TV appairée."
+          },
+          "required": false
+        },
+        {
+          "key": "tv_ip",
+          "type": "string",
+          "label": { "en": "TV IP address (fallback)", "fr": "Adresse IP de la TV (secours)" },
+          "description": {
+            "en": "Only if the TV does not appear in the list above (paired but not yet added as a device).",
+            "fr": "Uniquement si la TV n'apparaît pas dans la liste ci-dessus (appairée mais pas encore ajoutée comme appareil)."
           },
           "required": false
         }
