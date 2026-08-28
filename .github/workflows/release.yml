@@ -1,0 +1,66 @@
+name: Create GitHub Release
+
+# La release GitHub porte le changelog que Gladys affiche via le lien
+# « Voir le changelog de cette version » de l'onglet Supervision.
+#
+# Elle est créée automatiquement à chaque push d'un tag vX.Y.Z ; le
+# déclenchement manuel (workflow_dispatch) couvre un tag poussé avant
+# l'arrivée de ce workflow, ou une release supprimée à recréer.
+#
+# Le corps de la release est, dans l'ordre de préférence :
+#   1. le fichier .github/release-notes/<tag>.md s'il existe ;
+#   2. le message du tag annoté ;
+#   3. les notes générées par GitHub (liste des PR fusionnées).
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag existant pour lequel créer la release (ex : v1.3.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve the tag
+        id: tag
+        run: echo "tag=${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          if ! git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
+            echo "::error::Le tag $TAG n'existe pas dans le dépôt."
+            exit 1
+          fi
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "La release $TAG existe déjà, rien à faire."
+            exit 0
+          fi
+          NOTES_FILE=".github/release-notes/$TAG.md"
+          if [ -f "$NOTES_FILE" ]; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes-file "$NOTES_FILE"
+          else
+            MESSAGE="$(git tag -l --format='%(contents)' "$TAG")"
+            if [ -n "$MESSAGE" ] && [ "$MESSAGE" != "$TAG" ]; then
+              gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes "$MESSAGE"
+            else
+              gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes
+            fi
+          fi
