@@ -17,16 +17,20 @@ Version 1.3.0 publiée, **pas dans le store** (pas de topic `gladys-assistant-in
 - Mêmes étapes que la CI, dans le même ordre : `npm ci`, `npm run format:check`, `npm run lint`,
   `npm test` (`node --test`). Prettier contrôle **aussi le Markdown** : lancer `npm run format`
   après avoir modifié ce fichier ou le README, sinon la CI tombe.
-- La CI tourne en Node 24. Une session cloud a Node 22 par défaut, ce qui suffit (`engines` :
-  `>=20`).
+- **`CONTRIBUTING.md` fait foi** pour les branches et les versions. Deux branches permanentes,
+  `dev` (intégration) et `main` (production), et **aucun commit direct ni sur l'une ni sur
+  l'autre** : tout passe par une pull request vers `dev`. La protection de `main` cède devant le
+  jeton du mainteneur, ce qui ne change rien à la règle (elle a été enfreinte par erreur le
+  02/10/2026, en poussant la première version de ce fichier).
+- La CI ne tourne que sur les pull requests vers `dev` ou `main`, en Node 20 et 22.
 - Une session de code n'a **ni instance Gladys ni appareil réel**. La suite de tests, le lint et
   le validateur du store sont les seules vérifications possibles : le test réel passe par
   Guilhem ou par les testeurs du forum. Le dire, plutôt que de conclure que « ça marche ».
-- **Publier est un geste de Guilhem** : Actions → Release (patch, minor ou major) construit
-  l'image `ghcr.io/guim31/<dépôt>`, monte la version du manifeste et pose le tag. Un correctif
-  poussé sur `main` sans Release n'atteint aucune installation : le signaler.
-- Le workflow Release réindente le manifeste sans relancer la CI : passer `npm run format` au
-  commit suivant.
+- **Tout push publie une image** (`deploy.yml`) : sur `dev`, `:dev` et `:dev-<sha>` ; sur `main`,
+  `:latest` et la version du manifeste, **reconstruite** même si le code n'a pas changé ; sur un
+  tag `vX.Y.Z`, la version et la release GitHub. Publier une version est un geste de Guilhem :
+  PR `dev` → `main`, numéro dans `package.json` et le manifeste, puis le tag (voir
+  `CONTRIBUTING.md`).
 - Le dépôt est **public** : aucun secret, aucune adresse ni détail d'infrastructure privée, ni
   ici, ni dans les tests, ni dans les captures.
 
