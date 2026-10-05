@@ -8,7 +8,7 @@
   },
   "version": "1.3.0",
   "docker_image": "ghcr.io/guim31/gladys-integration-android-tv-remote:1.3.0",
-  "gladys_version": ">=4.86.0",
+  "gladys_version": ">=5.1.0",
   "cover_image": "https://raw.githubusercontent.com/guim31/gladys-integration-android-tv-remote/main/cover.png",
   "transports": ["local"],
   "network_wake": true,
@@ -211,6 +211,140 @@
           "required": false
         }
       ]
+    }
+  ],
+  "widgets": [
+    {
+      "key": "remote",
+      "label": { "en": "Remote", "fr": "Télécommande" },
+      "description": {
+        "en": "Power, volume, mute and foreground app of a TV, with the power, home, back and OK keys.",
+        "fr": "Alimentation, volume, sourdine et application d'une TV, et les touches marche, accueil, retour, OK."
+      },
+      "icon": "tv",
+      "settings": [
+        {
+          "key": "tv",
+          "type": "select",
+          "source": "devices",
+          "label": { "en": "TV", "fr": "TV" },
+          "description": {
+            "en": "Leave empty to show the first paired TV.",
+            "fr": "Laissez vide pour afficher la première TV appairée."
+          },
+          "required": false
+        }
+      ],
+      "action_timeout_seconds": 20
+    },
+    {
+      "key": "media",
+      "label": { "en": "Playback", "fr": "Lecture" },
+      "description": {
+        "en": "The foreground app of a TV and its playback keys: play/pause, stop, previous, next.",
+        "fr": "L'application au premier plan d'une TV et ses touches : lecture/pause, stop, précédent, suivant."
+      },
+      "icon": "play-circle",
+      "settings": [
+        {
+          "key": "tv",
+          "type": "select",
+          "source": "devices",
+          "label": { "en": "TV", "fr": "TV" },
+          "description": {
+            "en": "Leave empty to show the first paired TV.",
+            "fr": "Laissez vide pour afficher la première TV appairée."
+          },
+          "required": false
+        }
+      ],
+      "action_timeout_seconds": 20
+    },
+    {
+      "key": "apps",
+      "label": { "en": "Apps", "fr": "Applications" },
+      "description": {
+        "en": "Up to four application shortcuts on a TV, the foreground one ticked.",
+        "fr": "Jusqu'à quatre raccourcis d'applications sur une TV, celle au premier plan cochée."
+      },
+      "icon": "grid",
+      "settings": [
+        {
+          "key": "tv",
+          "type": "select",
+          "source": "devices",
+          "label": { "en": "TV", "fr": "TV" },
+          "description": {
+            "en": "Leave empty to show the first paired TV.",
+            "fr": "Laissez vide pour afficher la première TV appairée."
+          },
+          "required": false
+        },
+        {
+          "key": "app_1",
+          "type": "string",
+          "label": { "en": "Application 1", "fr": "Application 1" },
+          "description": {
+            "en": "Name of an application of the launcher, built-in or custom (case and accents do not matter).",
+            "fr": "Nom d'une application du lanceur, intégrée ou personnalisée (majuscules et accents indifférents)."
+          },
+          "required": false
+        },
+        {
+          "key": "app_2",
+          "type": "string",
+          "label": { "en": "Application 2", "fr": "Application 2" },
+          "description": {
+            "en": "Name of an application of the launcher, built-in or custom (case and accents do not matter).",
+            "fr": "Nom d'une application du lanceur, intégrée ou personnalisée (majuscules et accents indifférents)."
+          },
+          "required": false
+        },
+        {
+          "key": "app_3",
+          "type": "string",
+          "label": { "en": "Application 3", "fr": "Application 3" },
+          "description": {
+            "en": "Name of an application of the launcher, built-in or custom (case and accents do not matter).",
+            "fr": "Nom d'une application du lanceur, intégrée ou personnalisée (majuscules et accents indifférents)."
+          },
+          "required": false
+        },
+        {
+          "key": "app_4",
+          "type": "string",
+          "label": { "en": "Application 4", "fr": "Application 4" },
+          "description": {
+            "en": "Name of an application of the launcher, built-in or custom (case and accents do not matter).",
+            "fr": "Nom d'une application du lanceur, intégrée ou personnalisée (majuscules et accents indifférents)."
+          },
+          "required": false
+        }
+      ],
+      "action_timeout_seconds": 20
+    },
+    {
+      "key": "volume",
+      "label": { "en": "Volume", "fr": "Volume" },
+      "description": {
+        "en": "The live volume of a TV, its mute state, and the volume -, volume + and mute keys.",
+        "fr": "Le volume d'une TV en direct, sa sourdine, et les touches volume -, volume + et sourdine."
+      },
+      "icon": "volume-2",
+      "settings": [
+        {
+          "key": "tv",
+          "type": "select",
+          "source": "devices",
+          "label": { "en": "TV", "fr": "TV" },
+          "description": {
+            "en": "Leave empty to show the first paired TV.",
+            "fr": "Laissez vide pour afficher la première TV appairée."
+          },
+          "required": false
+        }
+      ],
+      "action_timeout_seconds": 20
     }
   ]
 }

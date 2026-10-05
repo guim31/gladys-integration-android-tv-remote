@@ -254,3 +254,118 @@ test('AndroidTVClientManager - getPairingTarget should ignore a closed session',
   // isPairing stays false: the session never opened, or already ended.
   assert.equal(manager.getPairingTarget(), undefined);
 });
+
+// --- Widget state and refresh requests -----------------------------------------
+
+function createWidgetGladys() {
+  const gladys = createMockGladys();
+  gladys.refreshed = [];
+  gladys.requestWidgetRefresh = (key) => gladys.refreshed.push(key);
+  return gladys;
+}
+
+test('AndroidTVClientManager - the last state reported by a TV is kept by IP for the widgets', () => {
+  const gladys = createWidgetGladys();
+  const manager = new AndroidTVClientManager(gladys);
+  const client = manager.getOrCreateClient({ ip: '192.168.1.50' });
+
+  // Nothing heard yet: not connected, nothing known.
+  assert.deepEqual(manager.getTvState('192.168.1.50'), {
+    connected: false,
+    powered: null,
+    volume: null,
+    muted: null,
+    appPackage: null,
+  });
+  assert.deepEqual(manager.getTvState('192.168.1.99'), manager.getTvState('192.168.1.50'));
+
+  client._emit('connected');
+  client._emit('power', true);
+  client.volumeMax = 50;
+  client._emit('volume', { level: 25, maximum: 50, muted: true });
+  client._emit('current_app', 'com.netflix.ninja');
+
+  assert.deepEqual(manager.getTvState('192.168.1.50'), {
+    connected: true,
+    powered: true,
+    volume: 50,
+    muted: true,
+    appPackage: 'com.netflix.ninja',
+  });
+
+  // A copy: a widget builder cannot corrupt the memory.
+  manager.getTvState('192.168.1.50').volume = 0;
+  assert.equal(manager.getTvState('192.168.1.50').volume, 50);
+
+  // A lost session keeps what was known, and says the TV is unreachable.
+  client._emit('disconnected');
+  assert.equal(manager.getTvState('192.168.1.50').connected, false);
+  assert.equal(manager.getTvState('192.168.1.50').volume, 50);
+
+  // A removed TV is forgotten.
+  manager.removeClient('192.168.1.50');
+  assert.equal(manager.getTvState('192.168.1.50').volume, null);
+  manager.disconnectAll();
+});
+
+test('AndroidTVClientManager - a state change nudges the widgets showing it, once per window', () => {
+  const gladys = createWidgetGladys();
+  const manager = new AndroidTVClientManager(gladys, undefined, { widgetNudgeMs: 60 * 1000 });
+  const client = manager.getOrCreateClient({ ip: '192.168.1.50' });
+
+  client._emit('power', true);
+  assert.deepEqual(gladys.refreshed, ['remote']);
+
+  // Same state again: nothing changed, nothing to nudge.
+  client._emit('power', true);
+  assert.deepEqual(gladys.refreshed, ['remote']);
+
+  // Volume: the remote and volume widgets, the remote one inside its window
+  // waits for the end of the window (a pending timer, no second request).
+  client.volumeMax = 50;
+  client._emit('volume', { level: 25, maximum: 50, muted: false });
+  assert.deepEqual(gladys.refreshed, ['remote', 'volume']);
+  assert.ok(manager.widgetNudges.get('remote').timer);
+  assert.equal(manager.widgetNudges.get('volume').timer, null);
+
+  // The foreground app: media and apps right away, remote still pending.
+  client._emit('current_app', 'com.netflix.ninja');
+  assert.deepEqual(gladys.refreshed, ['remote', 'volume', 'media', 'apps']);
+
+  // The connection state concerns every widget.
+  client._emit('connected');
+  assert.deepEqual(gladys.refreshed, ['remote', 'volume', 'media', 'apps']);
+  for (const key of ['remote', 'media', 'apps', 'volume']) {
+    assert.ok(manager.widgetNudges.get(key).timer, `${key} pending`);
+  }
+
+  for (const entry of manager.widgetNudges.values()) {
+    clearTimeout(entry.timer);
+  }
+  manager.disconnectAll();
+});
+
+test('AndroidTVClientManager - a pending nudge is sent when the window ends', async () => {
+  const gladys = createWidgetGladys();
+  const manager = new AndroidTVClientManager(gladys, undefined, { widgetNudgeMs: 20 });
+  const client = manager.getOrCreateClient({ ip: '192.168.1.50' });
+
+  client._emit('power', true);
+  client._emit('power', false);
+  assert.deepEqual(gladys.refreshed, ['remote']);
+
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  assert.deepEqual(gladys.refreshed, ['remote', 'remote']);
+  assert.equal(manager.widgetNudges.get('remote').timer, null);
+  manager.disconnectAll();
+});
+
+test('AndroidTVClientManager - the widgets survive an SDK without requestWidgetRefresh', () => {
+  // The plain mock has no requestWidgetRefresh: states are still tracked.
+  const manager = new AndroidTVClientManager(createMockGladys());
+  const client = manager.getOrCreateClient({ ip: '192.168.1.50' });
+  client._emit('power', true);
+  assert.equal(manager.getTvState('192.168.1.50').powered, true);
+  assert.equal(manager.widgetNudges.size, 0);
+  manager.disconnectAll();
+});

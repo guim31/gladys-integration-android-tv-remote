@@ -5,9 +5,16 @@
 import { GladysIntegration, logger } from '@gladysassistant/integration-sdk';
 import { normalizeConfig } from './src/config.js';
 import { AndroidTVClientManager } from './src/remote/client-manager.js';
-import { buildDiscoveredDevices, handleActionExecution } from './src/devices/index.js';
+import { buildDiscoveredDevices, handleActionExecution, tvDeviceExternalId } from './src/devices/index.js';
 import { resolveApps } from './src/devices/apps.js';
 import { sendWakeSequence } from './src/wol.js';
+import { WIDGET, emptyContent, resolveWidgetTv, widgetCommand, widgetContent, widgetToast } from './src/widgets.js';
+
+// The devices the integration created in Gladys, re-read at most once a
+// minute: the volume widget binds its tile to a feature only when the device
+// exists (a TV paired but not yet added would show an empty tile).
+const DEVICE_CACHE_MS = 60 * 1000;
+const knownDevices = { ids: null, fetchedAt: 0 };
 
 const gladys = new GladysIntegration();
 
@@ -124,6 +131,7 @@ gladys.onDeviceDeleted(async (device) => {
     return;
   }
   logger.info(`[AndroidTV] Device of the TV at ${tvIp} deleted, closing its session.`);
+  knownDevices.fetchedAt = 0;
   clientManager.removeClient(tvIp);
   await clientManager.refreshConnectionStatus();
 });
@@ -131,6 +139,8 @@ gladys.onDeviceDeleted(async (device) => {
 // The device of a paired TV was (re-)added from the discovery tab: connect
 // right away so its states start flowing without waiting for a restart.
 gladys.onDeviceCreated(async (device) => {
+  knownDevices.fetchedAt = 0;
+  clientManager.nudgeWidgets(Object.values(WIDGET));
   const tvIp = device?.params?.find((param) => param.name === 'TV_IP')?.value;
   if (!tvIp) {
     return;
@@ -160,6 +170,111 @@ ACTIONS.forEach((actionKey) => {
     return handleActionExecution(gladys, actionKey, fields, clientManager, config);
   });
 });
+
+// -----------------------------------------------------------------------------
+// Dashboard widgets (Gladys 5.1+)
+// -----------------------------------------------------------------------------
+
+// The content is built from what the integration already knows (last states
+// reported by the TV, in memory): no round trip to the TV, the core waits
+// 15 seconds at most for it.
+Object.values(WIDGET).forEach((widgetKey) => {
+  gladys.onWidgetGet(widgetKey, async ({ settings, language }) => {
+    const { tv, reason } = resolveWidgetTv(settings, config);
+    if (!tv) {
+      return emptyContent(reason);
+    }
+    return widgetContent(widgetKey, await buildWidgetView(tv), settings || {}, language);
+  });
+
+  // The buttons carry the TV IP address in their params: one handler serves
+  // every widget, and only the commands of widgetCommand() get through.
+  gladys.onWidgetAction(widgetKey, async (actionKey, params) => handleWidgetAction(actionKey, params));
+});
+
+/**
+ * Gather what the widgets show of a TV.
+ *
+ * @param {Object} tvConfig The TV configuration entry.
+ * @returns {Promise<Object>} The view, see remoteContent() in src/widgets.js.
+ */
+async function buildWidgetView(tvConfig) {
+  const deviceExternalId = tvDeviceExternalId(gladys, tvConfig.ip);
+  return {
+    ip: tvConfig.ip,
+    name: tvConfig.name || `Android TV (${tvConfig.ip})`,
+    deviceExternalId,
+    state: clientManager.getTvState(tvConfig.ip),
+    apps: resolveApps(config),
+    deviceAdded: await isDeviceAdded(deviceExternalId),
+  };
+}
+
+/**
+ * Whether a device of the integration exists in Gladys.
+ *
+ * @param {string} externalId The device external_id.
+ * @returns {Promise<boolean|undefined>} undefined when Gladys could not be asked.
+ */
+async function isDeviceAdded(externalId) {
+  if (!knownDevices.ids || Date.now() - knownDevices.fetchedAt > DEVICE_CACHE_MS) {
+    try {
+      const devices = await gladys.getDevices();
+      knownDevices.ids = new Set((devices || []).map((device) => device.external_id));
+      knownDevices.fetchedAt = Date.now();
+    } catch (err) {
+      logger.warn(`[AndroidTV] Could not list the devices created in Gladys: ${err.message}`);
+      return knownDevices.ids ? knownDevices.ids.has(externalId) : undefined;
+    }
+  }
+  return knownDevices.ids.has(externalId);
+}
+
+/**
+ * Run the command of a widget button.
+ *
+ * The TV IP comes from the params the content declared, and must still match
+ * a paired TV: a TV removed since the dashboard loaded is refused, not probed.
+ *
+ * @param {string} actionKey The key of the button.
+ * @param {Object} params Its params ({ ip, app? }).
+ * @returns {Promise<Object>} The toast shown to the user, in both languages.
+ */
+async function handleWidgetAction(actionKey, params) {
+  const command = widgetCommand(actionKey, params);
+  if (!command) {
+    throw new Error(`Unsupported widget action: ${actionKey}`);
+  }
+  const tvConfig = config.tvs?.find((tv) => tv.ip === command.ip);
+  if (!tvConfig) {
+    throw new Error(`No paired TV has the address ${command.ip}. Reload the dashboard, or pick another TV.`);
+  }
+  logger.info(`[AndroidTV] Widget action ${actionKey} for ${tvConfig.ip}`);
+
+  if (command.kind === 'power') {
+    // The button toggles from the last state known: off when the TV is
+    // connected and did not say it is in standby, on otherwise (Wake-on-LAN
+    // included when it is unreachable) — the same reading as the widget.
+    const state = clientManager.getTvState(tvConfig.ip);
+    const turnOn = !(state.connected && state.powered !== false);
+    await handlePowerRequest(tvConfig.ip, turnOn);
+    return widgetToast(command, { turnOn });
+  }
+
+  const client = await ensureClientConnected(tvConfig.ip);
+  if (command.kind === 'app') {
+    const app = resolveApps(config).find((supported) => supported.id === command.app);
+    if (!app) {
+      throw new Error(`Unknown app ID: ${command.app}`);
+    }
+    // A TV without the app refuses the link and says so: the error of the
+    // TV is what the user reads in the toast.
+    await client.sendApp(app.uri || app.package);
+    return widgetToast(command, { appName: app.name });
+  }
+  await client.sendKey(command.key);
+  return widgetToast(command);
+}
 
 /**
  * Handle a power on/off request, including on a TV that is unreachable.
