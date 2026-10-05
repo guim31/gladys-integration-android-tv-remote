@@ -98,8 +98,9 @@ rafraîchissement des widgets quand la TV change d'état.
 - Un état inconnu (volume, sourdine, application) **n'affiche pas de ligne** ; une application
   hors lanceur n'est pas nommée (seul le paquet est connu).
 - La tuile Volume est liée à `${deviceExternalId}:volume` **seulement si l'appareil existe** dans
-  Gladys (`gladys.getDevices()`, en cache 60 s, invalidé par `onDeviceCreated`/`onDeviceDeleted`) ;
-  sinon tuile statique avec le dernier niveau connu. Si Gladys ne répond pas, on lie quand même.
+  Gladys, lu dans `gladys.devices` (le SDK le tient en mémoire : resynchronisé à
+  l'authentification et sur `device.created/updated/deleted`, jamais de requête HTTP au rendu) ;
+  sinon tuile statique avec le dernier niveau connu.
 - Boutons Applications : clés `app_1`…`app_4` (les clés des réglages), l'application dans
   `params.app` ; noms comparés par `slugifyAppName()` au nom **et** à l'id ; nom inconnu = bouton
   omis + caption « Inconnu : X. Connus : … » coupée à 80.
@@ -114,7 +115,8 @@ rafraîchissement des widgets quand la TV change d'état.
 - Le `package-lock.json` traînait en 1.2.0 avec un `package.json` en 1.3.0 : `npm install` le
   resynchronise, c'est normal de le voir changer avec une montée de dépendance.
 - Les descriptions de widgets du manifeste doivent tenir en **100 caractères par langue** : la
-  version française déborde vite.
+  version française déborde vite (celle de `remote` fait 99).
+- Les tests n'utilisent que des adresses de la plage `192.168.1.x` : aucune adresse réelle.
 
 ## Travailler sur ce dépôt
 

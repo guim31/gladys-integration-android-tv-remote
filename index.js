@@ -10,12 +10,6 @@ import { resolveApps } from './src/devices/apps.js';
 import { sendWakeSequence } from './src/wol.js';
 import { WIDGET, emptyContent, resolveWidgetTv, widgetCommand, widgetContent, widgetToast } from './src/widgets.js';
 
-// The devices the integration created in Gladys, re-read at most once a
-// minute: the volume widget binds its tile to a feature only when the device
-// exists (a TV paired but not yet added would show an empty tile).
-const DEVICE_CACHE_MS = 60 * 1000;
-const knownDevices = { ids: null, fetchedAt: 0 };
-
 const gladys = new GladysIntegration();
 
 let config = normalizeConfig();
@@ -131,7 +125,6 @@ gladys.onDeviceDeleted(async (device) => {
     return;
   }
   logger.info(`[AndroidTV] Device of the TV at ${tvIp} deleted, closing its session.`);
-  knownDevices.fetchedAt = 0;
   clientManager.removeClient(tvIp);
   await clientManager.refreshConnectionStatus();
 });
@@ -139,7 +132,7 @@ gladys.onDeviceDeleted(async (device) => {
 // The device of a paired TV was (re-)added from the discovery tab: connect
 // right away so its states start flowing without waiting for a restart.
 gladys.onDeviceCreated(async (device) => {
-  knownDevices.fetchedAt = 0;
+  // The volume widget binds its tile to the new device: re-pull it.
   clientManager.nudgeWidgets(Object.values(WIDGET));
   const tvIp = device?.params?.find((param) => param.name === 'TV_IP')?.value;
   if (!tvIp) {
@@ -176,15 +169,15 @@ ACTIONS.forEach((actionKey) => {
 // -----------------------------------------------------------------------------
 
 // The content is built from what the integration already knows (last states
-// reported by the TV, in memory): no round trip to the TV, the core waits
-// 15 seconds at most for it.
+// reported by the TV, devices held by the SDK, all in memory): no round trip
+// to the TV nor to Gladys, the core waits 15 seconds at most for it.
 Object.values(WIDGET).forEach((widgetKey) => {
   gladys.onWidgetGet(widgetKey, async ({ settings, language }) => {
     const { tv, reason } = resolveWidgetTv(settings, config);
     if (!tv) {
       return emptyContent(reason);
     }
-    return widgetContent(widgetKey, await buildWidgetView(tv), settings || {}, language);
+    return widgetContent(widgetKey, buildWidgetView(tv), settings || {}, language);
   });
 
   // The buttons carry the TV IP address in their params: one handler serves
@@ -195,10 +188,15 @@ Object.values(WIDGET).forEach((widgetKey) => {
 /**
  * Gather what the widgets show of a TV.
  *
+ * The volume widget binds its tile to a feature only when the device exists
+ * in Gladys (a TV paired but not yet added would show an empty tile): the SDK
+ * holds the created devices in `gladys.devices`, resynchronized at
+ * authentication and on every device created, updated or deleted.
+ *
  * @param {Object} tvConfig The TV configuration entry.
- * @returns {Promise<Object>} The view, see remoteContent() in src/widgets.js.
+ * @returns {Object} The view, see remoteContent() in src/widgets.js.
  */
-async function buildWidgetView(tvConfig) {
+function buildWidgetView(tvConfig) {
   const deviceExternalId = tvDeviceExternalId(gladys, tvConfig.ip);
   return {
     ip: tvConfig.ip,
@@ -206,28 +204,8 @@ async function buildWidgetView(tvConfig) {
     deviceExternalId,
     state: clientManager.getTvState(tvConfig.ip),
     apps: resolveApps(config),
-    deviceAdded: await isDeviceAdded(deviceExternalId),
+    deviceAdded: (gladys.devices || []).some((device) => device.external_id === deviceExternalId),
   };
-}
-
-/**
- * Whether a device of the integration exists in Gladys.
- *
- * @param {string} externalId The device external_id.
- * @returns {Promise<boolean|undefined>} undefined when Gladys could not be asked.
- */
-async function isDeviceAdded(externalId) {
-  if (!knownDevices.ids || Date.now() - knownDevices.fetchedAt > DEVICE_CACHE_MS) {
-    try {
-      const devices = await gladys.getDevices();
-      knownDevices.ids = new Set((devices || []).map((device) => device.external_id));
-      knownDevices.fetchedAt = Date.now();
-    } catch (err) {
-      logger.warn(`[AndroidTV] Could not list the devices created in Gladys: ${err.message}`);
-      return knownDevices.ids ? knownDevices.ids.has(externalId) : undefined;
-    }
-  }
-  return knownDevices.ids.has(externalId);
 }
 
 /**

@@ -282,6 +282,14 @@ test('widgets - apps: nothing to offer says so instead of an empty card', () => 
   assert.equal(buttons(content).length, 0);
   assert.equal(texts(content)[1].variant, 'body');
   assert.match(texts(content)[1].text.fr, /masquées/);
+
+  // An unknown name with nothing to compare it to: no "Known:" with an empty
+  // list, the body says why there is nothing.
+  const named = appsContent(view({}, { apps: [] }), { app_1: 'Zorglub' }, 'fr');
+  assert.deepEqual(validateWidgetContent(named), []);
+  assert.equal(texts(named).length, 2);
+  assert.equal(texts(named)[1].variant, 'body');
+  assert.equal(buttons(named).length, 0);
 });
 
 test('widgets - volume: a tile bound to the volume feature, the mute state, three keys', () => {

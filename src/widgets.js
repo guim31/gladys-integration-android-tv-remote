@@ -341,9 +341,9 @@ export function appsContent(view, settings, language) {
   const lang = widgetLanguage(language);
   const components = [heading(view.name)];
   const { apps, unknown } = appButtons(view, settings);
-  if (unknown.length > 0) {
-    // With the names that work, so a typo is fixed without leaving the page.
-    const known = (view.apps || []).map((app) => app.name).join(', ');
+  // With the names that work, so a typo is fixed without leaving the page.
+  const known = (view.apps || []).map((app) => app.name).join(', ');
+  if (unknown.length > 0 && known) {
     components.push({
       type: 'text',
       variant: 'caption',
