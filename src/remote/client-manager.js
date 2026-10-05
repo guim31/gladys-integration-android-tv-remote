@@ -1,6 +1,7 @@
 import { logger } from '@gladysassistant/integration-sdk';
 import { AndroidTVClient } from './android-tv-client.js';
 import { resolveApps } from '../devices/apps.js';
+import { WIDGET } from '../widgets.js';
 
 // A TV that is powered off stays unreachable for hours: the retry delay
 // doubles on every failed attempt, from 5 seconds up to 2 minutes, and resets
@@ -8,14 +9,46 @@ import { resolveApps } from '../devices/apps.js';
 export const RECONNECT_INITIAL_DELAY_MS = 5 * 1000;
 export const RECONNECT_MAX_DELAY_MS = 2 * 60 * 1000;
 
+// The Gladys core accepts one widget refresh request per 10 seconds per
+// widget and drops the others silently: the nudges inside the window are
+// coalesced into a single one, sent when the window ends.
+export const WIDGET_NUDGE_MS = 10 * 1000;
+
+/**
+ * The last state known of a TV before it reported anything.
+ *
+ * @returns {Object} { connected, powered, volume, muted, appPackage }.
+ */
+function emptyTvState() {
+  return {
+    // Whether a Remote v2 session is open with the TV right now.
+    connected: false,
+    // true: on, false: off or in standby, null: never reported.
+    powered: null,
+    // Volume in percent of the TV scale, null when never reported.
+    volume: null,
+    // true/false, null when never reported.
+    muted: null,
+    // Android package of the foreground app, null when never reported.
+    appPackage: null,
+  };
+}
+
 export class AndroidTVClientManager {
-  constructor(gladys, getApps = () => resolveApps()) {
+  constructor(gladys, getApps = () => resolveApps(), { widgetNudgeMs = WIDGET_NUDGE_MS } = {}) {
     this.gladys = gladys;
     // Returns the CURRENT app list on each call: the configuration (hidden
     // and custom apps) can change at any time, a list captured at build time
     // would go stale.
     this.getApps = getApps;
     this.clients = new Map();
+    // Last state known of each TV, by IP: what the dashboard widgets show.
+    // A TV only pushes its states over a live session, so this memory is the
+    // only way to answer a widget without a round trip to the TV.
+    this.states = new Map();
+    // Pending widget refresh requests, by widget key ({ last, timer }).
+    this.widgetNudgeMs = widgetNudgeMs;
+    this.widgetNudges = new Map();
     // TV going through the pairing sequence, remembered between step 1 and
     // step 2 so the PIN action does not have to ask for the address again.
     this.pairingTarget = null;
@@ -59,6 +92,78 @@ export class AndroidTVClientManager {
    */
   getClient(ip) {
     return this.clients.get(ip);
+  }
+
+  /**
+   * The last state known of a TV, for the dashboard widgets.
+   *
+   * A TV never heard of (no client yet, or removed) is simply not connected
+   * with nothing known: the widgets show it as unreachable.
+   *
+   * @param {string} ip TV IP address.
+   * @returns {Object} A copy of { connected, powered, volume, muted, appPackage }.
+   */
+  getTvState(ip) {
+    return { ...(this.states.get(ip) || emptyTvState()) };
+  }
+
+  /**
+   * Record what a TV just reported and nudge the widgets showing it.
+   *
+   * Only an actual change nudges: a TV repeats its volume report on every
+   * key press, and the core rate-limits the nudges anyway.
+   *
+   * @param {string} ip TV IP address.
+   * @param {Object} changes Fields of the state to update.
+   * @param {Array<string>} widgetKeys Widgets showing these fields.
+   */
+  _updateTvState(ip, changes, widgetKeys) {
+    const state = this.states.get(ip) || emptyTvState();
+    const changed = Object.keys(changes).some((field) => state[field] !== changes[field]);
+    this.states.set(ip, { ...state, ...changes });
+    if (changed) {
+      this.nudgeWidgets(widgetKeys);
+    }
+  }
+
+  /**
+   * Ask Gladys to re-pull some widgets, once per 10-second window each.
+   *
+   * The core drops a second request inside its window silently: a change
+   * arriving right after a nudge would never reach the dashboards, so the
+   * request is delayed to the end of the window instead.
+   *
+   * @param {Array<string>} widgetKeys Widget keys declared in the manifest.
+   */
+  nudgeWidgets(widgetKeys) {
+    if (typeof this.gladys.requestWidgetRefresh !== 'function') {
+      return;
+    }
+    for (const key of widgetKeys) {
+      const entry = this.widgetNudges.get(key) || { last: 0, timer: null };
+      this.widgetNudges.set(key, entry);
+      if (entry.timer) {
+        continue;
+      }
+      const send = () => {
+        entry.timer = null;
+        entry.last = Date.now();
+        try {
+          this.gladys.requestWidgetRefresh(key);
+        } catch (err) {
+          logger.debug(`[AndroidTV] Widget refresh request for "${key}" failed: ${err.message}`);
+        }
+      };
+      const wait = entry.last + this.widgetNudgeMs - Date.now();
+      if (wait <= 0) {
+        send();
+      } else {
+        entry.timer = setTimeout(send, wait);
+        if (typeof entry.timer.unref === 'function') {
+          entry.timer.unref();
+        }
+      }
+    }
   }
 
   /**
@@ -275,9 +380,11 @@ export class AndroidTVClientManager {
       }
       this.clients.delete(ip);
     }
+    this.states.delete(ip);
     if (this.pairingTarget?.ip === ip) {
       this.pairingTarget = null;
     }
+    this.nudgeWidgets(Object.values(WIDGET));
   }
 
   /**
@@ -302,6 +409,7 @@ export class AndroidTVClientManager {
         logger.warn(`[AndroidTV] Error disconnecting client ${ip}:`, err.message);
       }
       this.clients.delete(ip);
+      this.states.delete(ip);
     }
   }
 
@@ -322,21 +430,36 @@ export class AndroidTVClientManager {
     const featureId = (suffix) => this.gladys.externalId(`tv:${ipSanitized}:${suffix}`);
     const publish = (suffix, value) => this.gladys.publishState(featureId(suffix), value).catch(() => {});
 
-    client.on('power', (powered) => publish('power', powered ? 1 : 0));
+    const ip = tvConfig.ip;
+    const everyWidget = Object.values(WIDGET);
+
+    client.on('power', (powered) => {
+      this._updateTvState(ip, { powered: Boolean(powered) }, [WIDGET.REMOTE]);
+      return publish('power', powered ? 1 : 0);
+    });
 
     client.on('volume', (volume) => {
+      const changes = {};
       if (typeof volume?.level === 'number' && client.volumeMax) {
-        publish('volume', Math.round((volume.level / client.volumeMax) * 100));
+        changes.volume = Math.round((volume.level / client.volumeMax) * 100);
+        publish('volume', changes.volume);
       }
       if (typeof volume?.muted === 'boolean') {
+        changes.muted = volume.muted;
         publish('mute', volume.muted ? 1 : 0);
       }
+      this._updateTvState(ip, changes, [WIDGET.REMOTE, WIDGET.VOLUME]);
     });
 
     // The TV reports the package of its foreground app: shown as the current
     // selection of the application select. An app outside the catalog is not
     // published — the select would have no matching option to display anyway.
     client.on('current_app', (appPackage) => {
+      this._updateTvState(ip, { appPackage: appPackage ? String(appPackage) : null }, [
+        WIDGET.REMOTE,
+        WIDGET.MEDIA,
+        WIDGET.APPS,
+      ]);
       const app = this.getApps().find((supported) => supported.package === appPackage);
       if (app) {
         publish('app', { text: app.id });
@@ -346,17 +469,22 @@ export class AndroidTVClientManager {
     // A TV switched on later, a connection dropped, a certificate revoked: the
     // status shown in the configuration screen has to follow.
     client.on('connected', () => {
-      this._cancelReconnect(tvConfig.ip);
+      this._cancelReconnect(ip);
+      this._updateTvState(ip, { connected: true }, everyWidget);
       return this.refreshConnectionStatus();
     });
     // A dropped connection comes back through the scheduled reconnections: a
     // TV rebooting or in standby answers the first attempt, a TV powered off
     // is probed less and less often.
     client.on('disconnected', () => {
-      this.scheduleReconnect(tvConfig.ip);
+      this._updateTvState(ip, { connected: false }, everyWidget);
+      this.scheduleReconnect(ip);
       return this.refreshConnectionStatus();
     });
-    client.on('unpaired', () => this.refreshConnectionStatus());
+    client.on('unpaired', () => {
+      this._updateTvState(ip, { connected: false }, everyWidget);
+      return this.refreshConnectionStatus();
+    });
 
     return client;
   }

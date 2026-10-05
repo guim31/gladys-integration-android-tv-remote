@@ -16,6 +16,7 @@ Intégration externe officielle pour **Gladys Assistant** permettant de contrôl
 - 🔁 **Retour d'état** : l'état marche/arrêt, le volume, la sourdine et l'application au premier plan remontés par la TV sont publiés dans Gladys en temps réel. Une TV qui ne répond plus sur le réseau est marquée éteinte ; un appareil qui accepte la session sans annoncer son état (Mi Box…) est considéré allumé.
 - 🚀 **Lanceur d'Applications (Désactivable et Personnalisable)** : un sélecteur par TV pour lancer une application (_YouTube, Netflix, Prime Video, Disney+, Spotify, Plex, Twitch, Crunchyroll, YouTube Music, Apple TV, Arte, Molotov, myCANAL_), depuis le tableau de bord ou une scène. Masquez les applications que votre TV n'a pas (« Applications à masquer ») et ajoutez les vôtres (« Applications personnalisées », entrées `Nom = lien` séparées par des points-virgules) dans la configuration, puis relancez une recherche d'appareils.
 - ⏰ **Wake-on-LAN (Facultatif)** : renseignez l'adresse MAC de la TV et « Allumer » depuis Gladys réveille une TV totalement éteinte via un magic packet, là où le protocole Remote v2 seul ne le permet pas. Le paquet est envoyé au broadcast du sous-réseau de la TV (ex : `192.168.1.255`), puis en secours au broadcast général `255.255.255.255` et à l'adresse IP de la TV.
+- 🧩 **Widgets du tableau de bord (Gladys ≥ 5.1)** : quatre widgets propres à l'intégration — **Télécommande** (alimentation, volume, sourdine, application au premier plan et touches marche, accueil, retour, OK), **Lecture** (lecture/pause, stop, précédent, suivant), **Applications** (jusqu'à quatre raccourcis nommés dans les réglages du widget, l'application au premier plan cochée) et **Volume** (niveau en direct, sourdine, volume −/+). Chaque widget affiche la TV choisie dans ses réglages, ou la première TV appairée. Détails dans la section « Widgets du tableau de bord » ci-dessous.
 
 ---
 
@@ -49,6 +50,19 @@ Les actions « Renseigner l'adresse MAC », « Retirer une TV appairée » et «
 
 ---
 
+## 🧩 Widgets du tableau de bord (Gladys ≥ 5.1)
+
+Avec Gladys 5.1 ou plus récent, l'intégration propose quatre widgets (**Modifier le tableau de bord** → **Ajouter un widget**). Chaque widget a un réglage **TV** listant les TV ajoutées comme appareils ; laissé vide, il affiche la **première TV appairée**. Les boutons sont des actions de widget qui s'adressent directement à la TV : ils fonctionnent même pour une TV appairée mais pas encore ajoutée comme appareil. Ce qu'un widget affiche est le **dernier état remonté par la TV** (alimentation, volume, sourdine, application au premier plan) ; dès que la TV signale un changement, l'intégration demande à Gladys de rafraîchir les widgets concernés (au plus une fois toutes les 10 secondes par widget, limite du cœur).
+
+- **Télécommande** (`remote`) — le nom de la TV, puis une liste d'états : **Alimentation** (_Allumée_, _Éteinte_ ou _Injoignable_ quand aucune session n'est ouverte avec la TV), **Volume** (en %), **Sourdine** et **Application** au premier plan quand elle fait partie du lanceur. Quatre touches : _Éteindre_ si la TV est allumée, sinon _Allumer_ (avec le Wake-on-LAN si l'adresse MAC est renseignée et la TV injoignable), _Accueil_, _Retour_ et _OK_.
+- **Lecture** (`media`) — l'application au premier plan et les touches _Lecture / Pause_ (une seule touche, celle de la télécommande), _Stop_, _Précédent_ et _Suivant_. Une TV injoignable est signalée : les touches échoueraient.
+- **Applications** (`apps`) — jusqu'à quatre boutons, un par application. Sans réglage, ce sont les quatre premières applications visibles du lanceur (catalogue moins « Applications à masquer », puis « Applications personnalisées »). Sinon, écrivez dans **Application 1** à **4** le nom d'une application du lanceur, intégrée ou personnalisée, majuscules et accents indifférents (« netflix », « Prime video », « France TV »). Un nom qui ne correspond à rien est signalé dans le widget, avec la liste des noms reconnus. L'application au premier plan est cochée. Gladys affiche quatre boutons au plus par widget : pour en avoir davantage, ajoutez un second widget **Applications**. Une application absente de la TV est refusée par la TV elle-même, qui coupe la connexion au passage : l'erreur s'affiche dans le toast du bouton, masquez l'application ou corrigez son lien dans la configuration.
+- **Volume** (`volume`) — une tuile **Volume** liée à la fonctionnalité _Volume_ de la TV : elle suit les états publiés en direct, sans attendre le rafraîchissement du widget (pour une TV pas encore ajoutée comme appareil, elle montre le dernier niveau connu). Puis l'état de la **Sourdine** et les touches _Vol −_, _Vol +_ et _Sourdine_ (une bascule, cochée quand la sourdine est active).
+
+Limites : les états ne sont connus que lorsque la TV a une session Remote v2 ouverte (une TV totalement éteinte est _Injoignable_, ses derniers états restent affichés) ; l'application au premier plan n'est reconnue que si son paquet Android est connu du lanceur, ce qui n'est pas le cas d'une application personnalisée qui ne remplace pas une entrée du catalogue ; le nom de la TV est celui donné à l'appairage. Déclarer des widgets impose `gladys_version >= 5.1.0` : les installations Gladys plus anciennes ne voient plus les mises à jour de l'intégration.
+
+---
+
 ## 🐳 Déploiement Docker
 
 L'image Docker multi-architecture (`amd64`, `arm64`, `arm/v7`) est automatiquement construite via GitHub Actions. Chaque merge sur `main` publie l'image versionnée annoncée par le manifeste (`gladys-assistant-integration.json`) : pensez à y **incrémenter la version** dans toute PR qui change le comportement, c'est elle qui déclenche la proposition de mise à jour côté Gladys.
@@ -61,7 +75,7 @@ docker run -d \
   -e GLADYS_HOST_API_URL=http://localhost:8080 \
   -e GLADYS_INTEGRATION_TOKEN=your_token_here \
   -e GLADYS_INTEGRATION_SELECTOR=android-tv-remote \
-  ghcr.io/guim31/gladys-integration-android-tv-remote:1.3.0
+  ghcr.io/guim31/gladys-integration-android-tv-remote:1.4.0
 ```
 
 | Tag       | Contenu                                                      |

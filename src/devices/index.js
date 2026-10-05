@@ -43,6 +43,43 @@ export function sanitizeIpForExternalId(ip) {
 }
 
 /**
+ * Build the external_id of the Gladys device of a TV.
+ *
+ * Every feature of the device is `${deviceExternalId}:<suffix>` (`:power`,
+ * `:volume`, `:mute`, `:app`, `:key:<name>`): the widgets bind their tiles to
+ * these very ids, so they are built here and nowhere else.
+ *
+ * @param {Object} gladys Gladys integration SDK instance.
+ * @param {string} ip The TV IP address.
+ * @returns {string} The device external_id (ext:<selector>:tv:192_168_1_50).
+ */
+export function tvDeviceExternalId(gladys, ip) {
+  return gladys.externalId(`tv:${sanitizeIpForExternalId(ip)}`);
+}
+
+/**
+ * Find the configuration entry of the TV a device external_id points to.
+ *
+ * This is how a `source: "devices"` field (action field or widget setting)
+ * gets back to a TV: its value is the device external_id, which embeds the
+ * sanitized IP after the `:tv:` marker.
+ *
+ * @param {unknown} externalId The device external_id received from Gladys.
+ * @param {Array<Object>} tvs Configured TVs ({ ip, ... }).
+ * @returns {Object|undefined} The matching TV, or undefined when none matches.
+ */
+export function findTvByExternalId(externalId, tvs = []) {
+  const id = typeof externalId === 'string' ? externalId.trim() : '';
+  const marker = ':tv:';
+  const markerIndex = id.lastIndexOf(marker);
+  if (markerIndex < 0) {
+    return undefined;
+  }
+  const idFragment = id.slice(markerIndex + marker.length);
+  return tvs.find((tv) => sanitizeIpForExternalId(tv.ip) === idFragment);
+}
+
+/**
  * Build the device payload of an Android TV.
  *
  * @param {Object} gladys Gladys integration SDK instance.
@@ -53,7 +90,7 @@ export function sanitizeIpForExternalId(ip) {
  */
 export function buildAndroidTVDevice(gladys, tvConfig, enableAppShortcuts = true, apps = resolveApps()) {
   const ip = tvConfig.ip;
-  const deviceExternalId = gladys.externalId(`tv:${sanitizeIpForExternalId(ip)}`);
+  const deviceExternalId = tvDeviceExternalId(gladys, ip);
   const deviceName = tvConfig.name || `Android TV (${ip})`;
 
   const features = [
@@ -358,10 +395,7 @@ function resolveTargetTv(fields, currentConfig) {
   const deviceExternalId = trim(fields?.tv_device);
   if (deviceExternalId) {
     // The device external_id embeds the sanitized IP: ext:<selector>:tv:192_168_1_50.
-    const marker = ':tv:';
-    const markerIndex = deviceExternalId.lastIndexOf(marker);
-    const idFragment = markerIndex >= 0 ? deviceExternalId.slice(markerIndex + marker.length) : '';
-    const tvConfig = tvs.find((tv) => sanitizeIpForExternalId(tv.ip) === idFragment);
+    const tvConfig = findTvByExternalId(deviceExternalId, tvs);
     if (!tvConfig) {
       throw new Error(
         `The selected device (${deviceExternalId}) matches no paired TV. ` +
