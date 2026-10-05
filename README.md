@@ -65,7 +65,7 @@ Limites : les états ne sont connus que lorsque la TV a une session Remote v2 ou
 
 ## 🐳 Déploiement Docker
 
-L'image Docker multi-architecture (`amd64`, `arm64`, `arm/v7`) est automatiquement construite via GitHub Actions. Chaque merge sur `main` publie l'image versionnée annoncée par le manifeste (`gladys-assistant-integration.json`) : pensez à y **incrémenter la version** dans toute PR qui change le comportement, c'est elle qui déclenche la proposition de mise à jour côté Gladys.
+L'image Docker multi-architecture (`amd64`, `arm64`) est construite par GitHub Actions. Une version se publie depuis l'onglet **Actions → Release** (patch, minor ou major) : le workflow monte la version du manifeste (`gladys-assistant-integration.json`) et de `package.json`, pose le tag `vX.Y.Z`, publie l'image `:X.Y.Z` et `:latest`, et crée la release GitHub dont Gladys affiche le changelog. Un commit fusionné sur `main` ne publie rien tant qu'une Release n'a pas été lancée.
 
 En usage normal, c'est **Gladys qui démarre le conteneur** : rien à lancer à la main. La commande ci-dessous ne sert qu'au débogage en dehors de Gladys.
 
@@ -78,11 +78,11 @@ docker run -d \
   ghcr.io/guim31/gladys-integration-android-tv-remote:1.4.0
 ```
 
-| Tag       | Contenu                                                      |
-| --------- | ------------------------------------------------------------ |
-| `:1.3.0`  | Version figée — **recommandé**                               |
-| `:latest` | Dernier état stable de la branche `main`                     |
-| `:dev`    | Dernier build de la branche `dev` — pour tester, peut casser |
+| Tag       | Contenu                                                                           |
+| --------- | --------------------------------------------------------------------------------- |
+| `:1.4.0`  | Version figée — **recommandé** (c'est celle que le manifeste annonce)             |
+| `:latest` | Dernière version publiée                                                          |
+| autre     | Build d'essai lancé à la main (Actions → Build and publish image, nom de branche) |
 
 ---
 
@@ -175,9 +175,10 @@ npm run format:check
 
 ## 🤝 Contribuer
 
-Le dépôt suit un modèle à deux branches : `dev` (intégration) et `main`
-(production). Les détails — nommage des branches, convention de commits,
-processus de publication — sont dans [CONTRIBUTING.md](CONTRIBUTING.md).
+Une seule branche permanente, `main` ; tout passe par une pull request, et une
+version se publie par le workflow **Release**. Les détails — nommage des branches,
+convention de commits, processus de publication — sont dans
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 

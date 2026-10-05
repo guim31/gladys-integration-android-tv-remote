@@ -120,11 +120,14 @@ rafraîchissement des widgets quand la TV change d'état.
 
 ## Travailler sur ce dépôt
 
-- **Git Flow** (`CONTRIBUTING.md`) : partir de `dev`, branche `feature/…` ou `fix/…`, PR vers
-  `dev`, **jamais vers `main`** ; `dev` → `main` est la PR de release de Guilhem. Commits
-  Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`…). Ne pas toucher `.github/`, ni la
-  `version` du manifeste et de `package.json` (montée à la release, avec
-  `.github/release-notes/vX.Y.Z.md` et le `docker run` du README).
+- **Une seule branche permanente, `main`** (`CONTRIBUTING.md`, aligné sur les autres intégrations
+  de guim31 depuis la 1.4.0 ; l'ancienne branche `dev` et ses images `:dev` n'existent plus) :
+  branche `feature/…` ou `fix/…`, PR vers `main`. Commits Conventional Commits (`feat:`, `fix:`,
+  `docs:`, `chore:`…). Ne pas toucher `.github/workflows/` (communs aux 11 dépôts), ni la
+  `version` du manifeste et de `package.json` : le workflow **Release** (Actions → Release, patch /
+  minor / major) la monte, reformate le manifeste, pose le tag, publie l'image et crée la release
+  GitHub (notes depuis `.github/release-notes/vX.Y.Z.md` s'il existe, sinon générées depuis les
+  PR). Répercuter la version dans le `docker run` du README au commit suivant si besoin.
 - Mêmes étapes que la CI, dans le même ordre : `npm ci`, `npm run lint`, `npm run format:check`,
   `npm test` (`node --test`, un fichier par module). Prettier contrôle **aussi le Markdown et le
   JSON** : lancer `npm run format` après avoir touché ce fichier, le README, les docs ou le

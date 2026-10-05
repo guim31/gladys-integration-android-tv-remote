@@ -1,66 +1,147 @@
-name: Create GitHub Release
-
-# La release GitHub porte le changelog que Gladys affiche via le lien
-# « Voir le changelog de cette version » de l'onglet Supervision.
+# -----------------------------------------------------------------------------
+# Cut a new release — from the GitHub UI (Actions -> Release -> "Run workflow",
+# pick patch / minor / major) or over the API (workflow_dispatch).
 #
-# Elle est créée automatiquement à chaque push d'un tag vX.Y.Z ; le
-# déclenchement manuel (workflow_dispatch) couvre un tag poussé avant
-# l'arrivée de ce workflow, ou une release supprimée à recréer.
+# What it does, in one run:
+#   1. computes the next semver from `package.json` (npm version rules);
+#   2. writes it into `package.json`, `package-lock.json` AND the manifest
+#      (`gladys-assistant-integration.json`: both `version` and the
+#      `docker_image` tag, so the indexer and the image stay in lockstep),
+#      then re-formats the manifest with Prettier so the release commit keeps
+#      the CI `format:check` gate green;
+#   3. commits the bump and pushes the `vX.Y.Z` tag;
+#   4. calls build.yml to publish the multi-arch image (`:X.Y.Z` + `:latest`);
+#   5. creates the GitHub Release of the tag — Gladys links to it from
+#      "See the changelog of this version" in the Supervision tab. Its body is
+#      `.github/release-notes/vX.Y.Z.md` when that file exists, otherwise the
+#      notes GitHub generates from the merged pull requests.
 #
-# Le corps de la release est, dans l'ordre de préférence :
-#   1. le fichier .github/release-notes/<tag>.md s'il existe ;
-#   2. le message du tag annoté ;
-#   3. les notes générées par GitHub (liste des PR fusionnées).
+# Why call build.yml instead of relying on the tag push: a tag pushed with the
+# default GITHUB_TOKEN does NOT trigger other workflows, so we invoke the build
+# ourselves. No personal access token to create.
+#
+# Shared by every Gladys integration of this author: edit the copy in
+# gladys-release/workflows on the maintainer's side, then propagate.
+# -----------------------------------------------------------------------------
+name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
-      tag:
-        description: 'Tag existant pour lequel créer la release (ex : v1.3.0)'
+      release-type:
+        description: 'Version bump for this release'
         required: true
-        type: string
-
-permissions:
-  contents: write
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
 
 jobs:
-  release:
+  prepare:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # commit the version bump and push the tag
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          fetch-tags: true
 
-      - name: Resolve the tag
-        id: tag
-        run: echo "tag=${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
 
-      - name: Create the release
+      - name: Bump version and update the manifest
+        id: bump
+        env:
+          RELEASE_TYPE: ${{ inputs.release-type }}
+        run: |
+          set -euo pipefail
+
+          # npm computes the next semver and writes it to package.json (and
+          # package-lock.json). --no-git-tag-version: we own the commit + tag
+          # below, so npm must not touch git.
+          new_version="$(npm version "$RELEASE_TYPE" --no-git-tag-version | tail -n1)"
+          new_version="${new_version#v}" # v1.2.0 -> 1.2.0
+
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:${new_version}"
+
+          # Keep the manifest in lockstep: the version the indexer reads AND the
+          # image tag Gladys pulls must both point at this release.
+          tmp="$(mktemp)"
+          jq --arg version "$new_version" --arg image "$image" \
+            '.version = $version | .docker_image = $image' \
+            gladys-assistant-integration.json > "$tmp"
+          mv "$tmp" gladys-assistant-integration.json
+
+          # jq's output is not Prettier-formatted: re-format the manifest so
+          # the release commit keeps the CI `format:check` gate green.
+          npx --yes prettier@^3 --write gladys-assistant-integration.json
+
+          echo "version=${new_version}" >> "$GITHUB_OUTPUT"
+
+      # Note: if the branch you release from is protected against direct pushes,
+      # GitHub rejects the push below (the default GITHUB_TOKEN cannot bypass
+      # branch protection). Allow GitHub Actions to bypass the rule, or release
+      # from an unprotected branch.
+      - name: Commit, tag and push
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add package.json package-lock.json gladys-assistant-integration.json
+          git commit -m "chore(release): ${VERSION}"
+          git tag -a "v${VERSION}" -m "Release ${VERSION}"
+
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git push origin "v${VERSION}"
+
+  # Build and publish the image for the version we just tagged.
+  build:
+    needs: prepare
+    uses: ./.github/workflows/build.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      version: ${{ needs.prepare.outputs.version }}
+
+  # The GitHub Release is what Gladys shows as the changelog of the version.
+  # Created only once the image exists, so a user who follows the link never
+  # reads about a version that cannot be installed yet.
+  publish:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the release
+    steps:
+      - name: Checkout the tag
+        uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.prepare.outputs.version }}
+          fetch-depth: 0
+
+      - name: Create the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.tag.outputs.tag }}
+          TAG: v${{ needs.prepare.outputs.version }}
         run: |
-          if ! git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
-            echo "::error::Le tag $TAG n'existe pas dans le dépôt."
-            exit 1
-          fi
+          set -euo pipefail
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            echo "La release $TAG existe déjà, rien à faire."
+            echo "Release $TAG already exists, nothing to do."
             exit 0
           fi
-          NOTES_FILE=".github/release-notes/$TAG.md"
-          if [ -f "$NOTES_FILE" ]; then
-            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes-file "$NOTES_FILE"
+          notes_file=".github/release-notes/${TAG}.md"
+          if [ -f "$notes_file" ]; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes-file "$notes_file"
           else
-            MESSAGE="$(git tag -l --format='%(contents)' "$TAG")"
-            if [ -n "$MESSAGE" ] && [ "$MESSAGE" != "$TAG" ]; then
-              gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes "$MESSAGE"
-            else
-              gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes
-            fi
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes
           fi
