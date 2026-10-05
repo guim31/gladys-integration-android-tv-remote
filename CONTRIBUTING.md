@@ -1,27 +1,23 @@
 # Contribuer
 
 Merci de votre intérêt pour cette intégration ! Ce document décrit l'organisation
-des branches, le cycle de développement et le processus de publication.
+des branches, le cycle de développement et le processus de publication. Il est
+le même pour toutes les intégrations Gladys de l'auteur.
 
 ---
 
-## 🌳 Stratégie de branches
+## 🌳 Branches
 
-Le dépôt suit un modèle **Git Flow simplifié** à deux branches permanentes :
-
-| Branche | Rôle                                                                       | Image Docker publiée |
-| ------- | -------------------------------------------------------------------------- | -------------------- |
-| `main`  | Code stable, en production. Chaque version est taguée `vX.Y.Z`.            | `:latest`, `:X.Y.Z`  |
-| `dev`   | Branche d'intégration. Les fonctionnalités y sont fusionnées puis testées. | `:dev`, `:dev-<sha>` |
+Une seule branche permanente, **`main`** : c'est ce qui est publié. Chaque version
+y est taguée `vX.Y.Z` par le workflow Release.
 
 ```
-main          ← production, taguée vX.Y.Z
- └── dev      ← intégration
-      ├── feature/nom-de-la-fonctionnalite
-      └── fix/nom-du-correctif
+main          ← publié, tagué vX.Y.Z par le workflow Release
+ ├── feature/nom-de-la-fonctionnalite
+ └── fix/nom-du-correctif
 ```
 
-**Aucun commit direct sur `main` ni sur `dev`** : tout passe par une pull request.
+**Aucun commit direct sur `main`** : tout passe par une pull request.
 
 ### Nommage des branches de travail
 
@@ -37,11 +33,11 @@ main          ← production, taguée vX.Y.Z
 
 ## 🔄 Cycle de développement
 
-1. **Partir de `dev`** (toujours à jour) :
+1. **Partir de `main`** (toujours à jour) :
 
    ```bash
-   git checkout dev
-   git pull origin dev
+   git checkout main
+   git pull origin main
    git checkout -b feature/ma-fonctionnalite
    ```
 
@@ -63,72 +59,69 @@ main          ← production, taguée vX.Y.Z
    docs: précise la procédure d'appairage
    ```
 
-4. **Ouvrir une pull request vers `dev`**. La CI (lint, formatage, tests sur
-   Node 20 et 22) doit être verte avant toute fusion.
-
-5. Une fois `dev` stable, ouvrir une pull request **`dev` → `main`**, puis
-   publier une version (voir ci-dessous).
+4. **Ouvrir une pull request vers `main`**. La CI (lint, formatage, tests) doit
+   être verte avant toute fusion. Ne pas toucher à la `version` du manifeste ni
+   de `package.json` : c'est le workflow Release qui la monte.
 
 ---
 
 ## 🤖 Intégration continue
 
-Deux workflows GitHub Actions :
+Trois workflows GitHub Actions, communs aux intégrations de l'auteur :
 
-- **`ci.yml`** — lance ESLint, la vérification Prettier et les tests unitaires
-  sur Node 20 et Node 22. Déclenché sur chaque pull request vers `main` ou `dev`.
-- **`deploy.yml`** — rejoue d'abord la CI, puis construit et publie l'image
-  Docker multi-architecture (`amd64`, `arm64`, `arm/v7`) sur `ghcr.io`. Aucune
-  image n'est publiée si la CI échoue.
+- **`ci.yml`** — ESLint, vérification Prettier et tests unitaires, sur chaque
+  pull request et chaque push sur `main`.
+- **`build.yml`** — construit et publie l'image Docker multi-architecture
+  (`amd64`, `arm64`) sur `ghcr.io`. Appelé par le workflow Release ; lancé à la
+  main (Actions → Build and publish image, sur une branche), il publie une image
+  d'essai taguée du nom de la branche, sans toucher à `:latest`.
+- **`release.yml`** — publie une version (voir ci-dessous).
 
 ### Images publiées
 
-| Déclencheur     | Tags produits                  |
-| --------------- | ------------------------------ |
-| Push sur `dev`  | `:dev`, `:dev-<sha-court>`     |
-| Push sur `main` | `:latest`                      |
-| Tag `vX.Y.Z`    | `:X.Y.Z`, `:vX.Y.Z`, `:latest` |
+| Déclencheur                        | Tags produits                    |
+| ---------------------------------- | -------------------------------- |
+| Workflow Release                   | `:X.Y.Z`, `:latest`              |
+| Build and publish image, à la main | `:<nom-de-branche>` ou tag saisi |
 
-Le tag `:dev` est **mouvant** : il pointe toujours vers le dernier build de la
-branche `dev`. Pour figer une version de test précise, utiliser `:dev-<sha>`.
-
-Tester une image de développement :
+Tester une image d'essai :
 
 ```bash
 docker run -d \
-  --name gladys-integration-android-tv-remote-dev \
+  --name gladys-integration-android-tv-remote-test \
   -e GLADYS_HOST_API_URL=http://localhost:8080 \
   -e GLADYS_INTEGRATION_TOKEN=your_token_here \
   -e GLADYS_INTEGRATION_SELECTOR=android-tv-remote \
-  ghcr.io/guim31/gladys-integration-android-tv-remote:dev
+  ghcr.io/guim31/gladys-integration-android-tv-remote:ma-branche
 ```
 
-> ⚠️ Les images `:dev` ne sont pas destinées à un usage quotidien : elles
-> peuvent contenir des régressions. Utiliser `:latest` ou un tag de version
-> pour une installation stable.
+> ⚠️ Les images d'essai ne sont pas destinées à un usage quotidien : elles
+> peuvent contenir des régressions. Utiliser un tag de version pour une
+> installation stable.
 
 ---
 
 ## 🚀 Publier une version
 
-1. Fusionner `dev` dans `main` via une pull request.
-2. Mettre à jour le numéro de version dans `package.json` **et** dans
-   `gladys-assistant-integration.json` si nécessaire.
-3. Créer et pousser le tag :
+Tout se fait depuis GitHub : **Actions → Release → Run workflow**, choisir
+`patch`, `minor` ou `major`. Le workflow :
 
-   ```bash
-   git checkout main
-   git pull origin main
-   git tag -a v1.0.4 -m "v1.0.4"
-   git push origin v1.0.4
-   ```
+1. calcule la version suivante (règles de `npm version`) et l'écrit dans
+   `package.json`, `package-lock.json` et le manifeste
+   `gladys-assistant-integration.json` (`version` et tag de `docker_image`),
+   puis reformate le manifeste avec Prettier ;
+2. commite `chore(release): X.Y.Z` sur `main` et pousse le tag `vX.Y.Z` ;
+3. construit et publie les images `:X.Y.Z` et `:latest` ;
+4. crée la **release GitHub** du tag — c'est elle que Gladys affiche via le lien
+   « Voir le changelog de cette version » de l'onglet Supervision. Son corps est
+   le fichier `.github/release-notes/vX.Y.Z.md` s'il existe (à ajouter dans une
+   PR avant la release), sinon les notes générées par GitHub depuis les pull
+   requests fusionnées.
 
-4. Le workflow `deploy.yml` construit et publie automatiquement les images
-   `:1.0.4`, `:v1.0.4` et `:latest`, et le workflow `release.yml` crée la
-   release GitHub du tag. Son corps vient de
-   `.github/release-notes/vX.Y.Z.md` (à ajouter dans la PR de release) ;
-   à défaut, du message du tag annoté, sinon des notes générées par GitHub.
-5. Répercuter la nouvelle version dans le `docker run` du `README.md`.
+Répercuter ensuite la nouvelle version dans le `docker run` du `README.md`.
+
+Les Gladys qui lisent le manifeste sur `main` proposent la mise à jour dès que
+la version a changé : une version ne se publie que par ce workflow.
 
 ---
 
@@ -144,12 +137,14 @@ Les tests utilisent le runner natif de Node (`node --test`) et vivent dans
 
 ---
 
-## 🛡️ Protection des branches (mainteneurs)
+## 🛡️ Protection de la branche (mainteneurs)
 
-À configurer dans **Settings → Branches** sur GitHub, pour `main` et `dev` :
+À configurer dans **Settings → Branches** sur GitHub, pour `main` :
 
 - Require a pull request before merging
-- Require status checks to pass before merging → sélectionner les jobs
-  `Lint, format & tests (Node 20)` et `Lint, format & tests (Node 22)`
-- Require branches to be up to date before merging
-- Bloquer les force-push et les suppressions de branche
+- Require status checks to pass before merging → sélectionner le job `Lint & test`
+- Bloquer les force-push et la suppression de la branche
+
+Le workflow Release pousse son commit de version sur `main` avec le jeton
+`GITHUB_TOKEN` : si la branche est protégée, autoriser GitHub Actions à
+contourner la règle, sinon la release échoue au push.
