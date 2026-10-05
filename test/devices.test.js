@@ -192,15 +192,15 @@ test('handleActionExecution - start_pairing should take its IP from the action f
   const result = await handleActionExecution(
     mockGladys,
     'start_pairing',
-    { tv_ip: '192.168.100.130', tv_name: 'Shield TV' },
+    { tv_ip: '192.168.1.60', tv_name: 'Shield TV' },
     manager,
     { tvs: [] },
   );
 
-  assert.ok(result.en.includes('192.168.100.130'));
+  assert.ok(result.en.includes('192.168.1.60'));
   assert.ok(result.fr.includes('code PIN'));
   // Step 2 must find the TV again without asking for the address twice.
-  assert.deepEqual(manager.pairingTarget, { ip: '192.168.100.130', name: 'Shield TV', mac: '' });
+  assert.deepEqual(manager.pairingTarget, { ip: '192.168.1.60', name: 'Shield TV', mac: '' });
 });
 
 test('handleActionExecution - start_pairing should normalize and carry the MAC address', async () => {
