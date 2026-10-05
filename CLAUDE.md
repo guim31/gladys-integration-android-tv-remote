@@ -14,16 +14,16 @@ piège est découvert.
 
 ## État au 05/10/2026
 
-Version 1.3.0 publiée (`main`, image `ghcr.io/guim31/gladys-integration-android-tv-remote:1.3.0`,
-notes dans `.github/release-notes/v1.3.0.md`). Les versions 1.1 à 1.3 sont issues de retours
-d'utilisateurs du forum Gladys (retour d'état, Wake-on-LAN, lanceur configurable, sélecteur de TV
-sur les actions, contournement du filtre « Appareil » de Gladys v5 signalé par lmilcent).
+Version 1.4.0 (`main`, image `ghcr.io/guim31/gladys-integration-android-tv-remote:1.4.0`, notes
+dans `.github/release-notes/v1.4.0.md`) : **quatre widgets de tableau de bord** (`remote`,
+`media`, `apps`, `volume`), SDK 0.12 → 0.14, `gladys_version` 4.86 → 5.1 (les Gladys plus anciens
+restent en 1.3.0), `docs/fr.md` / `docs/en.md` (le validateur du store les exige). Les versions 1.1
+à 1.3 sont issues de retours d'utilisateurs du forum Gladys (retour d'état, Wake-on-LAN, lanceur
+configurable, sélecteur de TV sur les actions, contournement du filtre « Appareil » de Gladys v5
+signalé par lmilcent).
 
-La branche `feature/dashboard-widgets` (PR vers `dev`) ajoute les **quatre widgets de tableau de
-bord** (`remote`, `media`, `apps`, `volume`), monte le SDK de 0.12 à 0.14 et `gladys_version` de
-4.86 à 5.1, et crée `docs/fr.md` / `docs/en.md` (le validateur du store les exige). **Rien de
-tout cela n'a été vérifié sur une instance Gladys ni sur une TV** : seuls les tests, le lint et le
-validateur du store ont tourné. À vérifier en réel : le rendu des quatre widgets (ordre des
+**Les widgets n'ont été vérifiés sur aucune instance Gladys ni aucune TV** avant la 1.4.0 : seuls
+les tests, le lint et le validateur du store ont tourné. À vérifier en réel : le rendu des quatre widgets (ordre des
 composants, icônes Feather, libellés), le bouton d'alimentation depuis l'état connu, le toast
 d'erreur quand la TV refuse une application, la tuile Volume liée à la fonctionnalité, et le
 rafraîchissement des widgets quand la TV change d'état.
