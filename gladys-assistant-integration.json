@@ -6,8 +6,8 @@
     "en": "Gladys Assistant integration for Android TV and Google TV using Remote v2 protocol.",
     "fr": "Intégration Gladys Assistant pour Android TV et Google TV via le protocole Remote v2."
   },
-  "version": "1.4.0",
-  "docker_image": "ghcr.io/guim31/gladys-integration-android-tv-remote:1.4.0",
+  "version": "1.4.1",
+  "docker_image": "ghcr.io/guim31/gladys-integration-android-tv-remote:1.4.1",
   "gladys_version": ">=5.1.0",
   "categories": ["multimedia"],
   "cover_image": "https://raw.githubusercontent.com/guim31/gladys-integration-android-tv-remote/main/cover.png",
@@ -17,7 +17,10 @@
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Pairing an Android TV / Google TV", "fr": "Appairer une Android TV / Google TV" },
+      "label": {
+        "en": "Pairing an Android TV / Google TV",
+        "fr": "Appairer une Android TV / Google TV"
+      },
       "description": {
         "en": "Everything you need to type lives in the two numbered actions at the bottom of this page — nothing to save in between. Turn your TV on, run step 1, then step 2, then scan for devices. Repeat for each TV you want to add.",
         "fr": "Tout ce que vous avez à saisir se trouve dans les deux actions numérotées en bas de cette page — rien à enregistrer entre les deux. Allumez votre TV, lancez l'étape 1, puis l'étape 2, puis lancez une recherche d'appareils. Répétez l'opération pour chaque TV à ajouter."
@@ -26,7 +29,10 @@
     {
       "key": "enable_app_shortcuts",
       "type": "boolean",
-      "label": { "en": "Enable the application launcher", "fr": "Activer le lanceur d'applications" },
+      "label": {
+        "en": "Enable the application launcher",
+        "fr": "Activer le lanceur d'applications"
+      },
       "description": {
         "en": "Add an application selector to each TV (Netflix, YouTube, Prime Video, Disney+, Spotify, Plex, Twitch, Crunchyroll, YouTube Music, Apple TV, Arte, Molotov, myCANAL). Applies to every paired TV on the next device scan.",
         "fr": "Ajouter un sélecteur d'applications à chaque TV (Netflix, YouTube, Prime Video, Disney+, Spotify, Plex, Twitch, Crunchyroll, YouTube Music, Apple TV, Arte, Molotov, myCANAL). S'applique à toutes les TV appairées à la prochaine recherche d'appareils."
@@ -37,7 +43,10 @@
     {
       "key": "hidden_apps",
       "type": "string",
-      "label": { "en": "Applications to hide", "fr": "Applications à masquer" },
+      "label": {
+        "en": "Applications to hide",
+        "fr": "Applications à masquer"
+      },
       "description": {
         "en": "Applications of the built-in list to remove from the selector, separated by commas — e.g. \"Spotify, Arte\". A TV rejects the launch of an application it does not have. Applies on the next device scan.",
         "fr": "Applications de la liste intégrée à retirer du sélecteur, séparées par des virgules — ex : « Spotify, Arte ». Une TV refuse le lancement d'une application qu'elle n'a pas. S'applique à la prochaine recherche d'appareils."
@@ -47,7 +56,10 @@
     {
       "key": "custom_apps",
       "type": "string",
-      "label": { "en": "Custom applications", "fr": "Applications personnalisées" },
+      "label": {
+        "en": "Custom applications",
+        "fr": "Applications personnalisées"
+      },
       "description": {
         "en": "Applications to add to the selector, as \"Name = link\" entries separated by semicolons — e.g. \"France TV = https://www.france.tv ; VLC = vlc://\". The link is an https App Link or the scheme of the app. An entry named like a built-in application replaces it (to fix its link). Applies on the next device scan.",
         "fr": "Applications à ajouter au sélecteur, sous la forme « Nom = lien » séparées par des points-virgules — ex : « France TV = https://www.france.tv ; VLC = vlc:// ». Le lien est un App Link https ou le scheme de l'application. Une entrée portant le nom d'une application intégrée la remplace (pour corriger son lien). S'applique à la prochaine recherche d'appareils."
@@ -67,7 +79,10 @@
         {
           "key": "tv_ip",
           "type": "string",
-          "label": { "en": "TV IP address", "fr": "Adresse IP de la TV" },
+          "label": {
+            "en": "TV IP address",
+            "fr": "Adresse IP de la TV"
+          },
           "description": {
             "en": "Local IP address of the TV to pair, e.g. 192.168.1.50. The TV must be turned on.",
             "fr": "Adresse IP locale de la TV à appairer, ex : 192.168.1.50. La TV doit être allumée."
@@ -77,7 +92,10 @@
         {
           "key": "tv_name",
           "type": "string",
-          "label": { "en": "TV name (optional)", "fr": "Nom de la TV (facultatif)" },
+          "label": {
+            "en": "TV name (optional)",
+            "fr": "Nom de la TV (facultatif)"
+          },
           "description": {
             "en": "Display name of the TV in Gladys, e.g. Living Room TV.",
             "fr": "Nom d'affichage de la TV dans Gladys, ex : TV Salon."
@@ -87,7 +105,10 @@
         {
           "key": "tv_mac",
           "type": "string",
-          "label": { "en": "MAC address (optional)", "fr": "Adresse MAC (facultatif)" },
+          "label": {
+            "en": "MAC address (optional)",
+            "fr": "Adresse MAC (facultatif)"
+          },
           "description": {
             "en": "MAC address of the TV (e.g. 64:E4:D5:B4:12:66, shown in its network settings). Used to wake a fully powered-off TV with Wake-on-LAN when you turn it on from Gladys.",
             "fr": "Adresse MAC de la TV (ex : 64:E4:D5:B4:12:66, visible dans ses paramètres réseau). Sert à réveiller une TV totalement éteinte via Wake-on-LAN quand vous l'allumez depuis Gladys."
@@ -107,7 +128,10 @@
         {
           "key": "pairing_pin",
           "type": "string",
-          "label": { "en": "PIN code", "fr": "Code PIN" },
+          "label": {
+            "en": "PIN code",
+            "fr": "Code PIN"
+          },
           "description": {
             "en": "The 6-character code displayed on the TV screen after step 1. Type it here and run the action right away — the code is single use.",
             "fr": "Le code à 6 caractères affiché sur l'écran de la TV après l'étape 1. Saisissez-le ici et exécutez l'action dans la foulée — le code est à usage unique."
@@ -128,7 +152,10 @@
           "key": "tv_device",
           "type": "select",
           "source": "devices",
-          "label": { "en": "TV", "fr": "TV" },
+          "label": {
+            "en": "TV",
+            "fr": "TV"
+          },
           "description": {
             "en": "Pick the TV among your created devices.",
             "fr": "Choisissez la TV parmi vos appareils créés."
@@ -138,7 +165,10 @@
         {
           "key": "tv_ip",
           "type": "string",
-          "label": { "en": "TV IP address (fallback)", "fr": "Adresse IP de la TV (secours)" },
+          "label": {
+            "en": "TV IP address (fallback)",
+            "fr": "Adresse IP de la TV (secours)"
+          },
           "description": {
             "en": "Only if the TV does not appear in the list above (paired but not yet added as a device).",
             "fr": "Uniquement si la TV n'apparaît pas dans la liste ci-dessus (appairée mais pas encore ajoutée comme appareil)."
@@ -148,7 +178,10 @@
         {
           "key": "tv_mac",
           "type": "string",
-          "label": { "en": "MAC address", "fr": "Adresse MAC" },
+          "label": {
+            "en": "MAC address",
+            "fr": "Adresse MAC"
+          },
           "description": {
             "en": "MAC address of the TV (e.g. 64:E4:D5:B4:12:66, shown in its network settings). Leave empty to remove the stored one.",
             "fr": "Adresse MAC de la TV (ex : 64:E4:D5:B4:12:66, visible dans ses paramètres réseau). Laissez vide pour effacer celle enregistrée."
@@ -159,14 +192,20 @@
     },
     {
       "key": "remove_tv",
-      "label": { "en": "Remove a paired TV", "fr": "Retirer une TV appairée" },
+      "label": {
+        "en": "Remove a paired TV",
+        "fr": "Retirer une TV appairée"
+      },
       "timeout_seconds": 30,
       "fields": [
         {
           "key": "tv_device",
           "type": "select",
           "source": "devices",
-          "label": { "en": "TV", "fr": "TV" },
+          "label": {
+            "en": "TV",
+            "fr": "TV"
+          },
           "description": {
             "en": "Pick the TV to remove. Its certificates are deleted; pair it again to get it back.",
             "fr": "Choisissez la TV à retirer. Ses certificats sont supprimés ; refaites l'appairage pour la retrouver."
@@ -176,7 +215,10 @@
         {
           "key": "tv_ip",
           "type": "string",
-          "label": { "en": "TV IP address (fallback)", "fr": "Adresse IP de la TV (secours)" },
+          "label": {
+            "en": "TV IP address (fallback)",
+            "fr": "Adresse IP de la TV (secours)"
+          },
           "description": {
             "en": "Only if the TV does not appear in the list above (paired but not yet added as a device).",
             "fr": "Uniquement si la TV n'apparaît pas dans la liste ci-dessus (appairée mais pas encore ajoutée comme appareil)."
@@ -187,14 +229,20 @@
     },
     {
       "key": "test_connection",
-      "label": { "en": "Test the connection to a TV", "fr": "Tester la connexion à une TV" },
+      "label": {
+        "en": "Test the connection to a TV",
+        "fr": "Tester la connexion à une TV"
+      },
       "timeout_seconds": 30,
       "fields": [
         {
           "key": "tv_device",
           "type": "select",
           "source": "devices",
-          "label": { "en": "TV (optional)", "fr": "TV (facultatif)" },
+          "label": {
+            "en": "TV (optional)",
+            "fr": "TV (facultatif)"
+          },
           "description": {
             "en": "Leave empty to test the first paired TV.",
             "fr": "Laissez vide pour tester la première TV appairée."
@@ -204,7 +252,10 @@
         {
           "key": "tv_ip",
           "type": "string",
-          "label": { "en": "TV IP address (fallback)", "fr": "Adresse IP de la TV (secours)" },
+          "label": {
+            "en": "TV IP address (fallback)",
+            "fr": "Adresse IP de la TV (secours)"
+          },
           "description": {
             "en": "Only if the TV does not appear in the list above (paired but not yet added as a device).",
             "fr": "Uniquement si la TV n'apparaît pas dans la liste ci-dessus (appairée mais pas encore ajoutée comme appareil)."
@@ -217,7 +268,10 @@
   "widgets": [
     {
       "key": "remote",
-      "label": { "en": "Remote", "fr": "Télécommande" },
+      "label": {
+        "en": "Remote",
+        "fr": "Télécommande"
+      },
       "description": {
         "en": "Power, volume, mute and foreground app of a TV, with the power, home, back and OK keys.",
         "fr": "Alimentation, volume, sourdine et application d'une TV, et les touches marche, accueil, retour, OK."
@@ -228,7 +282,10 @@
           "key": "tv",
           "type": "select",
           "source": "devices",
-          "label": { "en": "TV", "fr": "TV" },
+          "label": {
+            "en": "TV",
+            "fr": "TV"
+          },
           "description": {
             "en": "Leave empty to show the first paired TV.",
             "fr": "Laissez vide pour afficher la première TV appairée."
@@ -240,7 +297,10 @@
     },
     {
       "key": "media",
-      "label": { "en": "Playback", "fr": "Lecture" },
+      "label": {
+        "en": "Playback",
+        "fr": "Lecture"
+      },
       "description": {
         "en": "The foreground app of a TV and its playback keys: play/pause, stop, previous, next.",
         "fr": "L'application au premier plan d'une TV et ses touches : lecture/pause, stop, précédent, suivant."
@@ -251,7 +311,10 @@
           "key": "tv",
           "type": "select",
           "source": "devices",
-          "label": { "en": "TV", "fr": "TV" },
+          "label": {
+            "en": "TV",
+            "fr": "TV"
+          },
           "description": {
             "en": "Leave empty to show the first paired TV.",
             "fr": "Laissez vide pour afficher la première TV appairée."
@@ -263,7 +326,10 @@
     },
     {
       "key": "apps",
-      "label": { "en": "Apps", "fr": "Applications" },
+      "label": {
+        "en": "Apps",
+        "fr": "Applications"
+      },
       "description": {
         "en": "Up to four application shortcuts on a TV, the foreground one ticked.",
         "fr": "Jusqu'à quatre raccourcis d'applications sur une TV, celle au premier plan cochée."
@@ -274,7 +340,10 @@
           "key": "tv",
           "type": "select",
           "source": "devices",
-          "label": { "en": "TV", "fr": "TV" },
+          "label": {
+            "en": "TV",
+            "fr": "TV"
+          },
           "description": {
             "en": "Leave empty to show the first paired TV.",
             "fr": "Laissez vide pour afficher la première TV appairée."
@@ -284,7 +353,10 @@
         {
           "key": "app_1",
           "type": "string",
-          "label": { "en": "Application 1", "fr": "Application 1" },
+          "label": {
+            "en": "Application 1",
+            "fr": "Application 1"
+          },
           "description": {
             "en": "Name of an application of the launcher, built-in or custom (case and accents do not matter).",
             "fr": "Nom d'une application du lanceur, intégrée ou personnalisée (majuscules et accents indifférents)."
@@ -294,7 +366,10 @@
         {
           "key": "app_2",
           "type": "string",
-          "label": { "en": "Application 2", "fr": "Application 2" },
+          "label": {
+            "en": "Application 2",
+            "fr": "Application 2"
+          },
           "description": {
             "en": "Name of an application of the launcher, built-in or custom (case and accents do not matter).",
             "fr": "Nom d'une application du lanceur, intégrée ou personnalisée (majuscules et accents indifférents)."
@@ -304,7 +379,10 @@
         {
           "key": "app_3",
           "type": "string",
-          "label": { "en": "Application 3", "fr": "Application 3" },
+          "label": {
+            "en": "Application 3",
+            "fr": "Application 3"
+          },
           "description": {
             "en": "Name of an application of the launcher, built-in or custom (case and accents do not matter).",
             "fr": "Nom d'une application du lanceur, intégrée ou personnalisée (majuscules et accents indifférents)."
@@ -314,7 +392,10 @@
         {
           "key": "app_4",
           "type": "string",
-          "label": { "en": "Application 4", "fr": "Application 4" },
+          "label": {
+            "en": "Application 4",
+            "fr": "Application 4"
+          },
           "description": {
             "en": "Name of an application of the launcher, built-in or custom (case and accents do not matter).",
             "fr": "Nom d'une application du lanceur, intégrée ou personnalisée (majuscules et accents indifférents)."
@@ -326,7 +407,10 @@
     },
     {
       "key": "volume",
-      "label": { "en": "Volume", "fr": "Volume" },
+      "label": {
+        "en": "Volume",
+        "fr": "Volume"
+      },
       "description": {
         "en": "The live volume of a TV, its mute state, and the volume -, volume + and mute keys.",
         "fr": "Le volume d'une TV en direct, sa sourdine, et les touches volume -, volume + et sourdine."
@@ -337,7 +421,10 @@
           "key": "tv",
           "type": "select",
           "source": "devices",
-          "label": { "en": "TV", "fr": "TV" },
+          "label": {
+            "en": "TV",
+            "fr": "TV"
+          },
           "description": {
             "en": "Leave empty to show the first paired TV.",
             "fr": "Laissez vide pour afficher la première TV appairée."
