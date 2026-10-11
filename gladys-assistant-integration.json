@@ -4,7 +4,9 @@
   "name": "Android TV Remote",
   "description": {
     "en": "Gladys Assistant integration for Android TV and Google TV using Remote v2 protocol.",
-    "fr": "Intégration Gladys Assistant pour Android TV et Google TV via le protocole Remote v2."
+    "fr": "Intégration Gladys Assistant pour Android TV et Google TV via le protocole Remote v2.",
+    "de": "Gladys-Assistant-Integration für Android TV und Google TV über das Protokoll Remote v2.",
+    "es": "Integración de Gladys Assistant para Android TV y Google TV mediante el protocolo Remote v2."
   },
   "version": "1.4.1",
   "docker_image": "ghcr.io/guim31/gladys-integration-android-tv-remote:1.4.1",
@@ -19,11 +21,15 @@
       "type": "section",
       "label": {
         "en": "Pairing an Android TV / Google TV",
-        "fr": "Appairer une Android TV / Google TV"
+        "fr": "Appairer une Android TV / Google TV",
+        "de": "Android TV / Google TV koppeln",
+        "es": "Emparejar un Android TV / Google TV"
       },
       "description": {
         "en": "Everything you need to type lives in the two numbered actions at the bottom of this page — nothing to save in between. Turn your TV on, run step 1, then step 2, then scan for devices. Repeat for each TV you want to add.",
-        "fr": "Tout ce que vous avez à saisir se trouve dans les deux actions numérotées en bas de cette page — rien à enregistrer entre les deux. Allumez votre TV, lancez l'étape 1, puis l'étape 2, puis lancez une recherche d'appareils. Répétez l'opération pour chaque TV à ajouter."
+        "fr": "Tout ce que vous avez à saisir se trouve dans les deux actions numérotées en bas de cette page — rien à enregistrer entre les deux. Allumez votre TV, lancez l'étape 1, puis l'étape 2, puis lancez une recherche d'appareils. Répétez l'opération pour chaque TV à ajouter.",
+        "de": "Alles, was du eingeben musst, steht in den zwei nummerierten Aktionen unten auf dieser Seite — dazwischen ist nichts zu speichern. Schalte den Fernseher ein, führe Schritt 1 und dann Schritt 2 aus und suche anschließend nach Geräten. Wiederhole das für jeden Fernseher, den du hinzufügen möchtest.",
+        "es": "Todo lo que debe introducir está en las dos acciones numeradas al final de esta página — no hay nada que guardar entre ellas. Encienda el televisor, ejecute el paso 1 y luego el paso 2, y después busque dispositivos. Repita la operación para cada televisor que quiera añadir."
       }
     },
     {
@@ -31,11 +37,15 @@
       "type": "boolean",
       "label": {
         "en": "Enable the application launcher",
-        "fr": "Activer le lanceur d'applications"
+        "fr": "Activer le lanceur d'applications",
+        "de": "App-Starter aktivieren",
+        "es": "Activar el lanzador de aplicaciones"
       },
       "description": {
         "en": "Add an application selector to each TV (Netflix, YouTube, Prime Video, Disney+, Spotify, Plex, Twitch, Crunchyroll, YouTube Music, Apple TV, Arte, Molotov, myCANAL). Applies to every paired TV on the next device scan.",
-        "fr": "Ajouter un sélecteur d'applications à chaque TV (Netflix, YouTube, Prime Video, Disney+, Spotify, Plex, Twitch, Crunchyroll, YouTube Music, Apple TV, Arte, Molotov, myCANAL). S'applique à toutes les TV appairées à la prochaine recherche d'appareils."
+        "fr": "Ajouter un sélecteur d'applications à chaque TV (Netflix, YouTube, Prime Video, Disney+, Spotify, Plex, Twitch, Crunchyroll, YouTube Music, Apple TV, Arte, Molotov, myCANAL). S'applique à toutes les TV appairées à la prochaine recherche d'appareils.",
+        "de": "Fügt jedem Fernseher eine App-Auswahl hinzu (Netflix, YouTube, Prime Video, Disney+, Spotify, Plex, Twitch, Crunchyroll, YouTube Music, Apple TV, Arte, Molotov, myCANAL). Gilt für alle gekoppelten Fernseher beim nächsten Gerätescan.",
+        "es": "Añade un selector de aplicaciones a cada televisor (Netflix, YouTube, Prime Video, Disney+, Spotify, Plex, Twitch, Crunchyroll, YouTube Music, Apple TV, Arte, Molotov, myCANAL). Se aplica a todos los televisores emparejados en la próxima búsqueda de dispositivos."
       },
       "required": false,
       "default": true
@@ -45,11 +55,15 @@
       "type": "string",
       "label": {
         "en": "Applications to hide",
-        "fr": "Applications à masquer"
+        "fr": "Applications à masquer",
+        "de": "Auszublendende Apps",
+        "es": "Aplicaciones que ocultar"
       },
       "description": {
         "en": "Applications of the built-in list to remove from the selector, separated by commas — e.g. \"Spotify, Arte\". A TV rejects the launch of an application it does not have. Applies on the next device scan.",
-        "fr": "Applications de la liste intégrée à retirer du sélecteur, séparées par des virgules — ex : « Spotify, Arte ». Une TV refuse le lancement d'une application qu'elle n'a pas. S'applique à la prochaine recherche d'appareils."
+        "fr": "Applications de la liste intégrée à retirer du sélecteur, séparées par des virgules — ex : « Spotify, Arte ». Une TV refuse le lancement d'une application qu'elle n'a pas. S'applique à la prochaine recherche d'appareils.",
+        "de": "Apps der integrierten Liste, die aus der Auswahl entfernt werden sollen, durch Kommas getrennt — z. B. „Spotify, Arte“. Ein Fernseher verweigert den Start einer App, die nicht installiert ist. Gilt ab dem nächsten Gerätescan.",
+        "es": "Aplicaciones de la lista integrada que se quitan del selector, separadas por comas — p. ej. \"Spotify, Arte\". Un televisor rechaza abrir una aplicación que no tiene instalada. Se aplica en la próxima búsqueda de dispositivos."
       },
       "required": false
     },
@@ -58,11 +72,15 @@
       "type": "string",
       "label": {
         "en": "Custom applications",
-        "fr": "Applications personnalisées"
+        "fr": "Applications personnalisées",
+        "de": "Eigene Apps",
+        "es": "Aplicaciones personalizadas"
       },
       "description": {
         "en": "Applications to add to the selector, as \"Name = link\" entries separated by semicolons — e.g. \"France TV = https://www.france.tv ; VLC = vlc://\". The link is an https App Link or the scheme of the app. An entry named like a built-in application replaces it (to fix its link). Applies on the next device scan.",
-        "fr": "Applications à ajouter au sélecteur, sous la forme « Nom = lien » séparées par des points-virgules — ex : « France TV = https://www.france.tv ; VLC = vlc:// ». Le lien est un App Link https ou le scheme de l'application. Une entrée portant le nom d'une application intégrée la remplace (pour corriger son lien). S'applique à la prochaine recherche d'appareils."
+        "fr": "Applications à ajouter au sélecteur, sous la forme « Nom = lien » séparées par des points-virgules — ex : « France TV = https://www.france.tv ; VLC = vlc:// ». Le lien est un App Link https ou le scheme de l'application. Une entrée portant le nom d'une application intégrée la remplace (pour corriger son lien). S'applique à la prochaine recherche d'appareils.",
+        "de": "Apps, die der Auswahl hinzugefügt werden, als Einträge „Name = Link“, durch Semikolons getrennt — z. B. „France TV = https://www.france.tv ; VLC = vlc://“. Der Link ist ein https-App-Link oder das Schema der App. Ein Eintrag mit dem Namen einer integrierten App ersetzt diese (um ihren Link zu korrigieren). Gilt ab dem nächsten Gerätescan.",
+        "es": "Aplicaciones que se añaden al selector, como entradas \"Nombre = enlace\" separadas por punto y coma — p. ej. \"France TV = https://www.france.tv ; VLC = vlc://\". El enlace es un App Link https o el esquema de la aplicación. Una entrada con el nombre de una aplicación integrada la sustituye (para corregir su enlace). Se aplica en la próxima búsqueda de dispositivos."
       },
       "required": false
     }
@@ -72,7 +90,9 @@
       "key": "start_pairing",
       "label": {
         "en": "Step 1 — Start pairing (show the PIN on the TV)",
-        "fr": "Étape 1 — Démarrer l'appairage (afficher le PIN sur la TV)"
+        "fr": "Étape 1 — Démarrer l'appairage (afficher le PIN sur la TV)",
+        "de": "Schritt 1 — Kopplung starten (PIN auf dem Fernseher anzeigen)",
+        "es": "Paso 1 — Iniciar el emparejamiento (mostrar el PIN en el televisor)"
       },
       "timeout_seconds": 30,
       "fields": [
@@ -81,11 +101,15 @@
           "type": "string",
           "label": {
             "en": "TV IP address",
-            "fr": "Adresse IP de la TV"
+            "fr": "Adresse IP de la TV",
+            "de": "IP-Adresse des Fernsehers",
+            "es": "Dirección IP del televisor"
           },
           "description": {
             "en": "Local IP address of the TV to pair, e.g. 192.168.1.50. The TV must be turned on.",
-            "fr": "Adresse IP locale de la TV à appairer, ex : 192.168.1.50. La TV doit être allumée."
+            "fr": "Adresse IP locale de la TV à appairer, ex : 192.168.1.50. La TV doit être allumée.",
+            "de": "Lokale IP-Adresse des zu koppelnden Fernsehers, z. B. 192.168.1.50. Der Fernseher muss eingeschaltet sein.",
+            "es": "Dirección IP local del televisor que se va a emparejar, p. ej. 192.168.1.50. El televisor debe estar encendido."
           },
           "required": true
         },
@@ -94,11 +118,15 @@
           "type": "string",
           "label": {
             "en": "TV name (optional)",
-            "fr": "Nom de la TV (facultatif)"
+            "fr": "Nom de la TV (facultatif)",
+            "de": "Name des Fernsehers (optional)",
+            "es": "Nombre del televisor (opcional)"
           },
           "description": {
             "en": "Display name of the TV in Gladys, e.g. Living Room TV.",
-            "fr": "Nom d'affichage de la TV dans Gladys, ex : TV Salon."
+            "fr": "Nom d'affichage de la TV dans Gladys, ex : TV Salon.",
+            "de": "Anzeigename des Fernsehers in Gladys, z. B. Fernseher Wohnzimmer.",
+            "es": "Nombre del televisor en Gladys, p. ej. TV Salón."
           },
           "required": false
         },
@@ -107,11 +135,15 @@
           "type": "string",
           "label": {
             "en": "MAC address (optional)",
-            "fr": "Adresse MAC (facultatif)"
+            "fr": "Adresse MAC (facultatif)",
+            "de": "MAC-Adresse (optional)",
+            "es": "Dirección MAC (opcional)"
           },
           "description": {
             "en": "MAC address of the TV (e.g. 64:E4:D5:B4:12:66, shown in its network settings). Used to wake a fully powered-off TV with Wake-on-LAN when you turn it on from Gladys.",
-            "fr": "Adresse MAC de la TV (ex : 64:E4:D5:B4:12:66, visible dans ses paramètres réseau). Sert à réveiller une TV totalement éteinte via Wake-on-LAN quand vous l'allumez depuis Gladys."
+            "fr": "Adresse MAC de la TV (ex : 64:E4:D5:B4:12:66, visible dans ses paramètres réseau). Sert à réveiller une TV totalement éteinte via Wake-on-LAN quand vous l'allumez depuis Gladys.",
+            "de": "MAC-Adresse des Fernsehers (z. B. 64:E4:D5:B4:12:66, in seinen Netzwerkeinstellungen angezeigt). Damit wird ein vollständig ausgeschalteter Fernseher per Wake-on-LAN geweckt, wenn du ihn über Gladys einschaltest.",
+            "es": "Dirección MAC del televisor (p. ej. 64:E4:D5:B4:12:66, visible en sus ajustes de red). Sirve para despertar con Wake-on-LAN un televisor totalmente apagado cuando lo enciende desde Gladys."
           },
           "required": false
         }
@@ -121,7 +153,9 @@
       "key": "submit_pin",
       "label": {
         "en": "Step 2 — Confirm the PIN displayed on the TV",
-        "fr": "Étape 2 — Valider le code PIN affiché sur la TV"
+        "fr": "Étape 2 — Valider le code PIN affiché sur la TV",
+        "de": "Schritt 2 — Auf dem Fernseher angezeigte PIN bestätigen",
+        "es": "Paso 2 — Confirmar el PIN mostrado en el televisor"
       },
       "timeout_seconds": 30,
       "fields": [
@@ -130,11 +164,15 @@
           "type": "string",
           "label": {
             "en": "PIN code",
-            "fr": "Code PIN"
+            "fr": "Code PIN",
+            "de": "PIN-Code",
+            "es": "Código PIN"
           },
           "description": {
             "en": "The 6-character code displayed on the TV screen after step 1. Type it here and run the action right away — the code is single use.",
-            "fr": "Le code à 6 caractères affiché sur l'écran de la TV après l'étape 1. Saisissez-le ici et exécutez l'action dans la foulée — le code est à usage unique."
+            "fr": "Le code à 6 caractères affiché sur l'écran de la TV après l'étape 1. Saisissez-le ici et exécutez l'action dans la foulée — le code est à usage unique.",
+            "de": "Der 6-stellige Code, der nach Schritt 1 auf dem Fernseher angezeigt wird. Gib ihn hier ein und führe die Aktion sofort aus — der Code ist nur einmal gültig.",
+            "es": "El código de 6 caracteres que aparece en la pantalla del televisor tras el paso 1. Introdúzcalo aquí y ejecute la acción enseguida — el código es de un solo uso."
           },
           "required": true
         }
@@ -144,7 +182,9 @@
       "key": "set_mac",
       "label": {
         "en": "Set the MAC address of a paired TV (Wake-on-LAN)",
-        "fr": "Renseigner l'adresse MAC d'une TV appairée (Wake-on-LAN)"
+        "fr": "Renseigner l'adresse MAC d'une TV appairée (Wake-on-LAN)",
+        "de": "MAC-Adresse eines gekoppelten Fernsehers festlegen (Wake-on-LAN)",
+        "es": "Indicar la dirección MAC de un televisor emparejado (Wake-on-LAN)"
       },
       "timeout_seconds": 30,
       "fields": [
@@ -154,11 +194,15 @@
           "source": "devices",
           "label": {
             "en": "TV",
-            "fr": "TV"
+            "fr": "TV",
+            "de": "Fernseher",
+            "es": "Televisor"
           },
           "description": {
             "en": "Pick the TV among your created devices.",
-            "fr": "Choisissez la TV parmi vos appareils créés."
+            "fr": "Choisissez la TV parmi vos appareils créés.",
+            "de": "Wähle den Fernseher unter deinen erstellten Geräten.",
+            "es": "Elija el televisor entre sus dispositivos creados."
           },
           "required": false
         },
@@ -167,11 +211,15 @@
           "type": "string",
           "label": {
             "en": "TV IP address (fallback)",
-            "fr": "Adresse IP de la TV (secours)"
+            "fr": "Adresse IP de la TV (secours)",
+            "de": "IP-Adresse des Fernsehers (Ersatz)",
+            "es": "Dirección IP del televisor (alternativa)"
           },
           "description": {
             "en": "Only if the TV does not appear in the list above (paired but not yet added as a device).",
-            "fr": "Uniquement si la TV n'apparaît pas dans la liste ci-dessus (appairée mais pas encore ajoutée comme appareil)."
+            "fr": "Uniquement si la TV n'apparaît pas dans la liste ci-dessus (appairée mais pas encore ajoutée comme appareil).",
+            "de": "Nur wenn der Fernseher nicht in der Liste oben erscheint (gekoppelt, aber noch nicht als Gerät hinzugefügt).",
+            "es": "Solo si el televisor no aparece en la lista de arriba (emparejado pero aún no añadido como dispositivo)."
           },
           "required": false
         },
@@ -180,11 +228,15 @@
           "type": "string",
           "label": {
             "en": "MAC address",
-            "fr": "Adresse MAC"
+            "fr": "Adresse MAC",
+            "de": "MAC-Adresse",
+            "es": "Dirección MAC"
           },
           "description": {
             "en": "MAC address of the TV (e.g. 64:E4:D5:B4:12:66, shown in its network settings). Leave empty to remove the stored one.",
-            "fr": "Adresse MAC de la TV (ex : 64:E4:D5:B4:12:66, visible dans ses paramètres réseau). Laissez vide pour effacer celle enregistrée."
+            "fr": "Adresse MAC de la TV (ex : 64:E4:D5:B4:12:66, visible dans ses paramètres réseau). Laissez vide pour effacer celle enregistrée.",
+            "de": "MAC-Adresse des Fernsehers (z. B. 64:E4:D5:B4:12:66, in seinen Netzwerkeinstellungen angezeigt). Leer lassen, um die gespeicherte zu löschen.",
+            "es": "Dirección MAC del televisor (p. ej. 64:E4:D5:B4:12:66, visible en sus ajustes de red). Déjela vacía para borrar la guardada."
           },
           "required": false
         }
@@ -194,7 +246,9 @@
       "key": "remove_tv",
       "label": {
         "en": "Remove a paired TV",
-        "fr": "Retirer une TV appairée"
+        "fr": "Retirer une TV appairée",
+        "de": "Gekoppelten Fernseher entfernen",
+        "es": "Quitar un televisor emparejado"
       },
       "timeout_seconds": 30,
       "fields": [
@@ -204,11 +258,15 @@
           "source": "devices",
           "label": {
             "en": "TV",
-            "fr": "TV"
+            "fr": "TV",
+            "de": "Fernseher",
+            "es": "Televisor"
           },
           "description": {
             "en": "Pick the TV to remove. Its certificates are deleted; pair it again to get it back.",
-            "fr": "Choisissez la TV à retirer. Ses certificats sont supprimés ; refaites l'appairage pour la retrouver."
+            "fr": "Choisissez la TV à retirer. Ses certificats sont supprimés ; refaites l'appairage pour la retrouver.",
+            "de": "Wähle den zu entfernenden Fernseher. Seine Zertifikate werden gelöscht; kopple ihn erneut, um ihn zurückzuholen.",
+            "es": "Elija el televisor que quiere quitar. Se borran sus certificados; vuelva a emparejarlo para recuperarlo."
           },
           "required": false
         },
@@ -217,11 +275,15 @@
           "type": "string",
           "label": {
             "en": "TV IP address (fallback)",
-            "fr": "Adresse IP de la TV (secours)"
+            "fr": "Adresse IP de la TV (secours)",
+            "de": "IP-Adresse des Fernsehers (Ersatz)",
+            "es": "Dirección IP del televisor (alternativa)"
           },
           "description": {
             "en": "Only if the TV does not appear in the list above (paired but not yet added as a device).",
-            "fr": "Uniquement si la TV n'apparaît pas dans la liste ci-dessus (appairée mais pas encore ajoutée comme appareil)."
+            "fr": "Uniquement si la TV n'apparaît pas dans la liste ci-dessus (appairée mais pas encore ajoutée comme appareil).",
+            "de": "Nur wenn der Fernseher nicht in der Liste oben erscheint (gekoppelt, aber noch nicht als Gerät hinzugefügt).",
+            "es": "Solo si el televisor no aparece en la lista de arriba (emparejado pero aún no añadido como dispositivo)."
           },
           "required": false
         }
@@ -231,7 +293,9 @@
       "key": "test_connection",
       "label": {
         "en": "Test the connection to a TV",
-        "fr": "Tester la connexion à une TV"
+        "fr": "Tester la connexion à une TV",
+        "de": "Verbindung zu einem Fernseher testen",
+        "es": "Probar la conexión con un televisor"
       },
       "timeout_seconds": 30,
       "fields": [
@@ -241,11 +305,15 @@
           "source": "devices",
           "label": {
             "en": "TV (optional)",
-            "fr": "TV (facultatif)"
+            "fr": "TV (facultatif)",
+            "de": "Fernseher (optional)",
+            "es": "Televisor (opcional)"
           },
           "description": {
             "en": "Leave empty to test the first paired TV.",
-            "fr": "Laissez vide pour tester la première TV appairée."
+            "fr": "Laissez vide pour tester la première TV appairée.",
+            "de": "Leer lassen, um den ersten gekoppelten Fernseher zu testen.",
+            "es": "Déjelo vacío para probar el primer televisor emparejado."
           },
           "required": false
         },
@@ -254,11 +322,15 @@
           "type": "string",
           "label": {
             "en": "TV IP address (fallback)",
-            "fr": "Adresse IP de la TV (secours)"
+            "fr": "Adresse IP de la TV (secours)",
+            "de": "IP-Adresse des Fernsehers (Ersatz)",
+            "es": "Dirección IP del televisor (alternativa)"
           },
           "description": {
             "en": "Only if the TV does not appear in the list above (paired but not yet added as a device).",
-            "fr": "Uniquement si la TV n'apparaît pas dans la liste ci-dessus (appairée mais pas encore ajoutée comme appareil)."
+            "fr": "Uniquement si la TV n'apparaît pas dans la liste ci-dessus (appairée mais pas encore ajoutée comme appareil).",
+            "de": "Nur wenn der Fernseher nicht in der Liste oben erscheint (gekoppelt, aber noch nicht als Gerät hinzugefügt).",
+            "es": "Solo si el televisor no aparece en la lista de arriba (emparejado pero aún no añadido como dispositivo)."
           },
           "required": false
         }
@@ -270,11 +342,15 @@
       "key": "remote",
       "label": {
         "en": "Remote",
-        "fr": "Télécommande"
+        "fr": "Télécommande",
+        "de": "Fernbedienung",
+        "es": "Mando a distancia"
       },
       "description": {
         "en": "Power, volume, mute and foreground app of a TV, with the power, home, back and OK keys.",
-        "fr": "Alimentation, volume, sourdine et application d'une TV, et les touches marche, accueil, retour, OK."
+        "fr": "Alimentation, volume, sourdine et application d'une TV, et les touches marche, accueil, retour, OK.",
+        "de": "Strom, Lautstärke, Stumm und aktive App eines Fernsehers, mit den Tasten Ein/Aus, Home, Zurück, OK.",
+        "es": "Encendido, volumen, silencio y app de un televisor, con las teclas de encendido, inicio, atrás, OK."
       },
       "icon": "tv",
       "settings": [
@@ -284,11 +360,15 @@
           "source": "devices",
           "label": {
             "en": "TV",
-            "fr": "TV"
+            "fr": "TV",
+            "de": "Fernseher",
+            "es": "Televisor"
           },
           "description": {
             "en": "Leave empty to show the first paired TV.",
-            "fr": "Laissez vide pour afficher la première TV appairée."
+            "fr": "Laissez vide pour afficher la première TV appairée.",
+            "de": "Leer lassen, um den ersten gekoppelten Fernseher anzuzeigen.",
+            "es": "Déjelo vacío para mostrar el primer televisor emparejado."
           },
           "required": false
         }
@@ -299,11 +379,15 @@
       "key": "media",
       "label": {
         "en": "Playback",
-        "fr": "Lecture"
+        "fr": "Lecture",
+        "de": "Wiedergabe",
+        "es": "Reproducción"
       },
       "description": {
         "en": "The foreground app of a TV and its playback keys: play/pause, stop, previous, next.",
-        "fr": "L'application au premier plan d'une TV et ses touches : lecture/pause, stop, précédent, suivant."
+        "fr": "L'application au premier plan d'une TV et ses touches : lecture/pause, stop, précédent, suivant.",
+        "de": "Die aktive App eines Fernsehers und ihre Wiedergabetasten: Play/Pause, Stopp, Zurück, Weiter.",
+        "es": "La app en primer plano de un televisor y sus teclas: reproducir/pausa, detener, anterior, siguiente."
       },
       "icon": "play-circle",
       "settings": [
@@ -313,11 +397,15 @@
           "source": "devices",
           "label": {
             "en": "TV",
-            "fr": "TV"
+            "fr": "TV",
+            "de": "Fernseher",
+            "es": "Televisor"
           },
           "description": {
             "en": "Leave empty to show the first paired TV.",
-            "fr": "Laissez vide pour afficher la première TV appairée."
+            "fr": "Laissez vide pour afficher la première TV appairée.",
+            "de": "Leer lassen, um den ersten gekoppelten Fernseher anzuzeigen.",
+            "es": "Déjelo vacío para mostrar el primer televisor emparejado."
           },
           "required": false
         }
@@ -328,11 +416,15 @@
       "key": "apps",
       "label": {
         "en": "Apps",
-        "fr": "Applications"
+        "fr": "Applications",
+        "de": "Apps",
+        "es": "Aplicaciones"
       },
       "description": {
         "en": "Up to four application shortcuts on a TV, the foreground one ticked.",
-        "fr": "Jusqu'à quatre raccourcis d'applications sur une TV, celle au premier plan cochée."
+        "fr": "Jusqu'à quatre raccourcis d'applications sur une TV, celle au premier plan cochée.",
+        "de": "Bis zu vier App-Verknüpfungen auf einem Fernseher, die aktive App abgehakt.",
+        "es": "Hasta cuatro accesos directos a aplicaciones de un televisor, con la de primer plano marcada."
       },
       "icon": "grid",
       "settings": [
@@ -342,11 +434,15 @@
           "source": "devices",
           "label": {
             "en": "TV",
-            "fr": "TV"
+            "fr": "TV",
+            "de": "Fernseher",
+            "es": "Televisor"
           },
           "description": {
             "en": "Leave empty to show the first paired TV.",
-            "fr": "Laissez vide pour afficher la première TV appairée."
+            "fr": "Laissez vide pour afficher la première TV appairée.",
+            "de": "Leer lassen, um den ersten gekoppelten Fernseher anzuzeigen.",
+            "es": "Déjelo vacío para mostrar el primer televisor emparejado."
           },
           "required": false
         },
@@ -355,11 +451,15 @@
           "type": "string",
           "label": {
             "en": "Application 1",
-            "fr": "Application 1"
+            "fr": "Application 1",
+            "de": "App 1",
+            "es": "Aplicación 1"
           },
           "description": {
             "en": "Name of an application of the launcher, built-in or custom (case and accents do not matter).",
-            "fr": "Nom d'une application du lanceur, intégrée ou personnalisée (majuscules et accents indifférents)."
+            "fr": "Nom d'une application du lanceur, intégrée ou personnalisée (majuscules et accents indifférents).",
+            "de": "Name einer App des App-Starters, integriert oder eigene (Groß-/Kleinschreibung und Akzente egal).",
+            "es": "Nombre de una aplicación del lanzador, integrada o personalizada (mayúsculas y acentos indiferentes)."
           },
           "required": false
         },
@@ -368,11 +468,15 @@
           "type": "string",
           "label": {
             "en": "Application 2",
-            "fr": "Application 2"
+            "fr": "Application 2",
+            "de": "App 2",
+            "es": "Aplicación 2"
           },
           "description": {
             "en": "Name of an application of the launcher, built-in or custom (case and accents do not matter).",
-            "fr": "Nom d'une application du lanceur, intégrée ou personnalisée (majuscules et accents indifférents)."
+            "fr": "Nom d'une application du lanceur, intégrée ou personnalisée (majuscules et accents indifférents).",
+            "de": "Name einer App des App-Starters, integriert oder eigene (Groß-/Kleinschreibung und Akzente egal).",
+            "es": "Nombre de una aplicación del lanzador, integrada o personalizada (mayúsculas y acentos indiferentes)."
           },
           "required": false
         },
@@ -381,11 +485,15 @@
           "type": "string",
           "label": {
             "en": "Application 3",
-            "fr": "Application 3"
+            "fr": "Application 3",
+            "de": "App 3",
+            "es": "Aplicación 3"
           },
           "description": {
             "en": "Name of an application of the launcher, built-in or custom (case and accents do not matter).",
-            "fr": "Nom d'une application du lanceur, intégrée ou personnalisée (majuscules et accents indifférents)."
+            "fr": "Nom d'une application du lanceur, intégrée ou personnalisée (majuscules et accents indifférents).",
+            "de": "Name einer App des App-Starters, integriert oder eigene (Groß-/Kleinschreibung und Akzente egal).",
+            "es": "Nombre de una aplicación del lanzador, integrada o personalizada (mayúsculas y acentos indiferentes)."
           },
           "required": false
         },
@@ -394,11 +502,15 @@
           "type": "string",
           "label": {
             "en": "Application 4",
-            "fr": "Application 4"
+            "fr": "Application 4",
+            "de": "App 4",
+            "es": "Aplicación 4"
           },
           "description": {
             "en": "Name of an application of the launcher, built-in or custom (case and accents do not matter).",
-            "fr": "Nom d'une application du lanceur, intégrée ou personnalisée (majuscules et accents indifférents)."
+            "fr": "Nom d'une application du lanceur, intégrée ou personnalisée (majuscules et accents indifférents).",
+            "de": "Name einer App des App-Starters, integriert oder eigene (Groß-/Kleinschreibung und Akzente egal).",
+            "es": "Nombre de una aplicación del lanzador, integrada o personalizada (mayúsculas y acentos indiferentes)."
           },
           "required": false
         }
@@ -409,11 +521,15 @@
       "key": "volume",
       "label": {
         "en": "Volume",
-        "fr": "Volume"
+        "fr": "Volume",
+        "de": "Lautstärke",
+        "es": "Volumen"
       },
       "description": {
         "en": "The live volume of a TV, its mute state, and the volume -, volume + and mute keys.",
-        "fr": "Le volume d'une TV en direct, sa sourdine, et les touches volume -, volume + et sourdine."
+        "fr": "Le volume d'une TV en direct, sa sourdine, et les touches volume -, volume + et sourdine.",
+        "de": "Die aktuelle Lautstärke eines Fernsehers, die Stummschaltung und die Tasten Leiser, Lauter, Stumm.",
+        "es": "El volumen en directo de un televisor, su silencio y las teclas volumen -, volumen + y silencio."
       },
       "icon": "volume-2",
       "settings": [
@@ -423,11 +539,15 @@
           "source": "devices",
           "label": {
             "en": "TV",
-            "fr": "TV"
+            "fr": "TV",
+            "de": "Fernseher",
+            "es": "Televisor"
           },
           "description": {
             "en": "Leave empty to show the first paired TV.",
-            "fr": "Laissez vide pour afficher la première TV appairée."
+            "fr": "Laissez vide pour afficher la première TV appairée.",
+            "de": "Leer lassen, um den ersten gekoppelten Fernseher anzuzeigen.",
+            "es": "Déjelo vacío para mostrar el primer televisor emparejado."
           },
           "required": false
         }

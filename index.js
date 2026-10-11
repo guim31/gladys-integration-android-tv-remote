@@ -216,7 +216,7 @@ function buildWidgetView(tvConfig) {
  *
  * @param {string} actionKey The key of the button.
  * @param {Object} params Its params ({ ip, app? }).
- * @returns {Promise<Object>} The toast shown to the user, in both languages.
+ * @returns {Promise<Object>} The toast shown to the user, in every language.
  */
 async function handleWidgetAction(actionKey, params) {
   const command = widgetCommand(actionKey, params);

@@ -108,6 +108,18 @@ rafraîchissement des widgets quand la TV change d'état.
   tuiles, focal, status, boutons) ne convient pas, c'est le contenu qu'il faut changer, pas
   l'ordre d'envoi.
 
+## Langues
+
+- Tous les textes existent en **`en`, `fr`, `de`, `es`** (les langues de l'interface de Gladys) :
+  manifeste, `TEXTS` de `src/widgets.js` (`LANGUAGES`, `widgetLanguage()` retombe sur `en`),
+  résultats d'action, statuts de connexion. `test/i18n.test.js` échoue sur une langue manquante, un
+  texte vide ou trop long. Allemand au **tutoiement** (« du », vérifié par le test), espagnol à « usted », vocabulaire de
+  `front/src/config/i18n/{de,es}.json` du cœur publié.
+- Restent en anglais : les erreurs levées (`throw new Error`), car le SDK n'en transmet que
+  `e.message`, une chaîne ; les noms de fonctionnalités, figés à la création des appareils.
+- Pas de `docs/de.md` ni `docs/es.md` : le store n'indexe que `en` et `fr` (`DOCS_LANGUAGES`), et
+  Gladys retombe sur `en`.
+
 ## Pièges déjà payés
 
 - `saveConfig()` n'existe pas dans le SDK (c'est `setConfig()`) : `test/sdk-contract.test.js`
@@ -165,7 +177,7 @@ pour toutes.
 - Le cœur attend **5 s** l'acquittement d'une commande `setValue` : une action longue (démarrage
   d'une TV) acquitte tout de suite et publie l'état plus tard.
 - Une intégration `device` ne reçoit pas la langue de l'utilisateur (un widget, si) : les
-  messages d'action sont des objets `{ en, fr }`.
+  messages d'action sont des objets multilingues.
 
 **Formulaires de configuration et actions**
 

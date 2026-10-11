@@ -67,64 +67,93 @@ const KEY_BUTTONS = {
   mute: 'mute',
 };
 
-const TEXTS = {
+export const TEXTS = {
   noTv: {
     en: 'No TV is paired yet. Run step 1 and step 2 in the configuration of the integration, then pick the TV here.',
     fr: "Aucune TV n'est appairée. Lancez les étapes 1 et 2 dans la configuration de l'intégration, puis choisissez la TV ici.",
+    de: 'Noch kein Fernseher gekoppelt. Führe Schritt 1 und 2 in der Konfiguration der Integration aus und wähle dann hier den Fernseher.',
+    es: 'Todavía no hay ningún televisor emparejado. Ejecute los pasos 1 y 2 en la configuración de la integración y luego elija aquí el televisor.',
   },
   unknownTv: {
     en: 'The TV picked in the settings of this widget is no longer paired. Pick another one, or leave the field empty.',
     fr: "La TV choisie dans les réglages de ce widget n'est plus appairée. Choisissez-en une autre, ou laissez le champ vide.",
+    de: 'Der in den Einstellungen dieses Widgets gewählte Fernseher ist nicht mehr gekoppelt. Wähle einen anderen oder lass das Feld leer.',
+    es: 'El televisor elegido en la configuración de este widget ya no está emparejado. Elija otro o deje el campo vacío.',
   },
   noApp: {
     en: 'No application to show: every application of the launcher is hidden in the configuration.',
     fr: 'Aucune application à afficher : toutes les applications du lanceur sont masquées dans la configuration.',
+    de: 'Keine App anzuzeigen: Alle Apps des App-Starters sind in der Konfiguration ausgeblendet.',
+    es: 'Ninguna aplicación que mostrar: todas las aplicaciones del lanzador están ocultas en la configuración.',
   },
-  power: { en: 'Power', fr: 'Alimentation' },
-  on: { en: 'On', fr: 'Allumée' },
-  off: { en: 'Off', fr: 'Éteinte' },
-  unreachable: { en: 'Unreachable', fr: 'Injoignable' },
-  volume: { en: 'Volume', fr: 'Volume' },
-  mute: { en: 'Mute', fr: 'Sourdine' },
-  yes: { en: 'Yes', fr: 'Oui' },
-  no: { en: 'No', fr: 'Non' },
-  app: { en: 'Application', fr: 'Application' },
-  turnOn: { en: 'Turn on', fr: 'Allumer' },
-  turnOff: { en: 'Turn off', fr: 'Éteindre' },
-  home: { en: 'Home', fr: 'Accueil' },
-  back: { en: 'Back', fr: 'Retour' },
-  ok: { en: 'OK', fr: 'OK' },
-  playPause: { en: 'Play / Pause', fr: 'Lecture / Pause' },
-  stop: { en: 'Stop', fr: 'Stop' },
-  previous: { en: 'Previous', fr: 'Précédent' },
-  next: { en: 'Next', fr: 'Suivant' },
-  volDown: { en: 'Vol −', fr: 'Vol −' },
-  volUp: { en: 'Vol +', fr: 'Vol +' },
+  power: { en: 'Power', fr: 'Alimentation', de: 'Strom', es: 'Alimentación' },
+  on: { en: 'On', fr: 'Allumée', de: 'An', es: 'Encendido' },
+  off: { en: 'Off', fr: 'Éteinte', de: 'Aus', es: 'Apagado' },
+  unreachable: { en: 'Unreachable', fr: 'Injoignable', de: 'Nicht erreichbar', es: 'Inaccesible' },
+  volume: { en: 'Volume', fr: 'Volume', de: 'Lautstärke', es: 'Volumen' },
+  mute: { en: 'Mute', fr: 'Sourdine', de: 'Stumm', es: 'Silencio' },
+  yes: { en: 'Yes', fr: 'Oui', de: 'Ja', es: 'Sí' },
+  no: { en: 'No', fr: 'Non', de: 'Nein', es: 'No' },
+  app: { en: 'Application', fr: 'Application', de: 'App', es: 'Aplicación' },
+  turnOn: { en: 'Turn on', fr: 'Allumer', de: 'Einschalten', es: 'Encender' },
+  turnOff: { en: 'Turn off', fr: 'Éteindre', de: 'Ausschalten', es: 'Apagar' },
+  home: { en: 'Home', fr: 'Accueil', de: 'Startseite', es: 'Inicio' },
+  back: { en: 'Back', fr: 'Retour', de: 'Zurück', es: 'Atrás' },
+  ok: { en: 'OK', fr: 'OK', de: 'OK', es: 'OK' },
+  playPause: { en: 'Play / Pause', fr: 'Lecture / Pause', de: 'Play / Pause', es: 'Reproducir / Pausa' },
+  stop: { en: 'Stop', fr: 'Stop', de: 'Stopp', es: 'Detener' },
+  previous: { en: 'Previous', fr: 'Précédent', de: 'Zurück', es: 'Anterior' },
+  next: { en: 'Next', fr: 'Suivant', de: 'Weiter', es: 'Siguiente' },
+  volDown: { en: 'Vol −', fr: 'Vol −', de: 'Leiser', es: 'Vol −' },
+  volUp: { en: 'Vol +', fr: 'Vol +', de: 'Lauter', es: 'Vol +' },
   unknownApps: {
     en: (unknown, known) => `Unknown: ${unknown}. Known: ${known}`,
     fr: (unknown, known) => `Inconnu : ${unknown}. Connus : ${known}`,
+    de: (unknown, known) => `Unbekannt: ${unknown}. Bekannt: ${known}`,
+    es: (unknown, known) => `Desconocido: ${unknown}. Conocidos: ${known}`,
   },
   toast: {
     power: {
-      on: { en: 'Turning the TV on…', fr: 'Allumage de la TV…' },
-      off: { en: 'Turning the TV off…', fr: 'Extinction de la TV…' },
+      on: {
+        en: 'Turning the TV on…',
+        fr: 'Allumage de la TV…',
+        de: 'Fernseher wird eingeschaltet…',
+        es: 'Encendiendo el televisor…',
+      },
+      off: {
+        en: 'Turning the TV off…',
+        fr: 'Extinction de la TV…',
+        de: 'Fernseher wird ausgeschaltet…',
+        es: 'Apagando el televisor…',
+      },
     },
-    key: { en: 'Key sent to the TV.', fr: 'Touche envoyée à la TV.' },
+    key: {
+      en: 'Key sent to the TV.',
+      fr: 'Touche envoyée à la TV.',
+      de: 'Taste an den Fernseher gesendet.',
+      es: 'Tecla enviada al televisor.',
+    },
     app: {
       en: (name) => `Opening ${name}…`,
       fr: (name) => `Ouverture de ${name}…`,
+      de: (name) => `${name} wird geöffnet…`,
+      es: (name) => `Abriendo ${name}…`,
     },
   },
 };
 
+/** The languages of every text of the integration (those of the Gladys UI). */
+export const LANGUAGES = ['en', 'fr', 'de', 'es'];
+
 /**
- * The language of a widget: Gladys sends the user's, the texts exist in two.
+ * The language of a widget: Gladys sends the user's, English when the texts
+ * do not exist in it.
  *
  * @param {unknown} language The user's language (ISO 639-1).
- * @returns {string} `fr` or `en`.
+ * @returns {string} One of LANGUAGES.
  */
 export function widgetLanguage(language) {
-  return language === 'fr' ? 'fr' : 'en';
+  return LANGUAGES.includes(language) ? language : 'en';
 }
 
 /**
@@ -334,7 +363,7 @@ export function appButtons(view, settings) {
  *
  * @param {Object} view The TV, see remoteContent().
  * @param {Object} settings The widget settings (app_1 … app_4).
- * @param {string} language `fr` or `en`.
+ * @param {string} language The user's language.
  * @returns {Object} The widget content.
  */
 export function appsContent(view, settings, language) {
@@ -474,7 +503,7 @@ export function widgetCommand(actionKey, params = {}) {
  *
  * @param {Object} command The command, see widgetCommand().
  * @param {Object} [details] `turnOn` for a power command, `appName` for an app.
- * @returns {Object} The message, in both languages (≤ 200 characters).
+ * @returns {Object} The message, in every language (≤ 200 characters).
  */
 export function widgetToast(command, { turnOn = true, appName = '' } = {}) {
   if (command.kind === 'power') {
@@ -482,7 +511,7 @@ export function widgetToast(command, { turnOn = true, appName = '' } = {}) {
   }
   if (command.kind === 'app') {
     const name = fit(appName || command.app, 40);
-    return { en: TEXTS.toast.app.en(name), fr: TEXTS.toast.app.fr(name) };
+    return Object.fromEntries(LANGUAGES.map((language) => [language, TEXTS.toast.app[language](name)]));
   }
   return TEXTS.toast.key;
 }

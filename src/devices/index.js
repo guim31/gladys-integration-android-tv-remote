@@ -205,7 +205,7 @@ export async function buildDiscoveredDevices(gladys, config) {
  * Handle a UI action (start_pairing, submit_pin, test_connection, remove_tv).
  *
  * The resolved value is acked by the SDK as `data.message` and shown under the
- * button, so it must be a string or a multi-language `{ en, fr }` object.
+ * button, so it must be a string or a multi-language `{ en, fr, de, es }` object.
  *
  * @param {Object} gladys Gladys integration SDK instance.
  * @param {string} actionKey Action key declared in the manifest.
@@ -245,6 +245,8 @@ export async function handleActionExecution(gladys, actionKey, fields, clientMan
     return {
       en: `A PIN code is now displayed on the screen of the TV at ${tvIp}. Type it in step 2 below and run it right away — the code expires.`,
       fr: `Un code PIN s'affiche maintenant sur l'écran de la TV ${tvIp}. Saisissez-le dans l'étape 2 ci-dessous et exécutez-la dans la foulée — le code expire.`,
+      de: `Auf dem Bildschirm des Fernsehers ${tvIp} wird jetzt ein PIN-Code angezeigt. Gib ihn unten in Schritt 2 ein und führe diesen sofort aus — der Code läuft ab.`,
+      es: `Ahora aparece un código PIN en la pantalla del televisor ${tvIp}. Introdúzcalo en el paso 2 de abajo y ejecútelo enseguida — el código caduca.`,
     };
   }
 
@@ -297,6 +299,8 @@ export async function handleActionExecution(gladys, actionKey, fields, clientMan
     return {
       en: `${tvName} is paired. Now run a device scan (Discovery tab) to add it to your Gladys devices.`,
       fr: `${tvName} est appairée. Lancez maintenant une recherche d'appareils (onglet Découverte) pour l'ajouter à vos appareils Gladys.`,
+      de: `${tvName} ist gekoppelt. Starte jetzt einen Gerätescan (Tab „Entdecken“), um den Fernseher zu deinen Gladys-Geräten hinzuzufügen.`,
+      es: `${tvName} está emparejado. Busque ahora dispositivos (pestaña «Descubrir») para añadirlo a sus dispositivos de Gladys.`,
     };
   }
 
@@ -320,11 +324,15 @@ export async function handleActionExecution(gladys, actionKey, fields, clientMan
       return {
         en: `The stored MAC address of ${tvConfig.name} (${tvIp}) has been removed: Wake-on-LAN is disabled for this TV.`,
         fr: `L'adresse MAC enregistrée de ${tvConfig.name} (${tvIp}) a été effacée : le Wake-on-LAN est désactivé pour cette TV.`,
+        de: `Die gespeicherte MAC-Adresse von ${tvConfig.name} (${tvIp}) wurde gelöscht: Wake-on-LAN ist für diesen Fernseher deaktiviert.`,
+        es: `Se ha borrado la dirección MAC guardada de ${tvConfig.name} (${tvIp}): Wake-on-LAN queda desactivado para este televisor.`,
       };
     }
     return {
       en: `MAC address ${mac} stored for ${tvConfig.name} (${tvIp}). Turning this TV on from Gladys now sends a Wake-on-LAN packet when it is unreachable.`,
       fr: `Adresse MAC ${mac} enregistrée pour ${tvConfig.name} (${tvIp}). Allumer cette TV depuis Gladys enverra désormais un paquet Wake-on-LAN quand elle est injoignable.`,
+      de: `MAC-Adresse ${mac} für ${tvConfig.name} (${tvIp}) gespeichert. Wenn du diesen Fernseher über Gladys einschaltest, wird nun ein Wake-on-LAN-Paket gesendet, falls er nicht erreichbar ist.`,
+      es: `Dirección MAC ${mac} guardada para ${tvConfig.name} (${tvIp}). Al encender este televisor desde Gladys se enviará ahora un paquete Wake-on-LAN cuando esté inaccesible.`,
     };
   }
 
@@ -343,6 +351,8 @@ export async function handleActionExecution(gladys, actionKey, fields, clientMan
     return {
       en: `${tvConfig.name} (${tvIp}) has been removed, along with its certificates. If it was added as a device, delete the device from its dashboard page.`,
       fr: `${tvConfig.name} (${tvIp}) a été retirée, ainsi que ses certificats. Si elle avait été ajoutée comme appareil, supprimez l'appareil depuis sa page.`,
+      de: `${tvConfig.name} (${tvIp}) wurde samt Zertifikaten entfernt. Falls der Fernseher als Gerät hinzugefügt war, lösche das Gerät auf seiner Seite.`,
+      es: `${tvConfig.name} (${tvIp}) se ha quitado junto con sus certificados. Si se había añadido como dispositivo, elimine el dispositivo desde su página.`,
     };
   }
 
@@ -373,6 +383,8 @@ export async function handleActionExecution(gladys, actionKey, fields, clientMan
     return {
       en: `Successfully connected to ${tvConfig.name} (${tvIp}).`,
       fr: `Connexion réussie à ${tvConfig.name} (${tvIp}).`,
+      de: `Verbindung zu ${tvConfig.name} (${tvIp}) erfolgreich.`,
+      es: `Conexión correcta con ${tvConfig.name} (${tvIp}).`,
     };
   }
 
