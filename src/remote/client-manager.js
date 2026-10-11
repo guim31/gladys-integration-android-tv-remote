@@ -250,16 +250,22 @@ export class AndroidTVClientManager {
       message = {
         en: 'No Android TV configured. Enter the IP address of your TV, then run the pairing sequence.',
         fr: "Aucune Android TV configurée. Saisissez l'adresse IP de votre TV, puis lancez l'appairage.",
+        de: 'Kein Android TV konfiguriert. Geben Sie die IP-Adresse Ihres Fernsehers ein und starten Sie dann die Kopplung.',
+        es: 'Ningún Android TV configurado. Introduzca la dirección IP de su televisor y luego inicie el emparejamiento.',
       };
     } else if (clients.every((client) => !client.isPaired())) {
       message = {
         en: 'Android TV configured but not paired yet. Run "Start Pairing", then confirm the PIN code displayed on the TV.',
         fr: "Android TV configurée mais pas encore appairée. Lancez « Démarrer l'appairage », puis validez le code PIN affiché sur la TV.",
+        de: 'Android TV konfiguriert, aber noch nicht gekoppelt. Führen Sie „Kopplung starten“ aus und bestätigen Sie dann den auf dem Fernseher angezeigten PIN-Code.',
+        es: 'Android TV configurado pero aún no emparejado. Ejecute «Iniciar el emparejamiento» y luego confirme el código PIN mostrado en el televisor.',
       };
     } else {
       message = {
         en: 'No Android TV reachable. Make sure your TVs are turned on and connected to the same network.',
         fr: 'Aucune Android TV joignable. Vérifiez que vos TV sont allumées et connectées au même réseau.',
+        de: 'Kein Android TV erreichbar. Prüfen Sie, ob Ihre Fernseher eingeschaltet und mit demselben Netzwerk verbunden sind.',
+        es: 'Ningún Android TV accesible. Compruebe que sus televisores están encendidos y conectados a la misma red.',
       };
     }
 

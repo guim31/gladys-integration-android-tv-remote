@@ -39,14 +39,16 @@ const buttons = (content) => content.components.filter((component) => component.
 const status = (content) => content.components.find((component) => component.type === 'status');
 const texts = (content) => content.components.filter((component) => component.type === 'text');
 
-/** Every text of a content, in both languages, so a missing translation shows up. */
-function assertBilingual(content) {
+/** Every text of a content, in every language, so a missing translation shows up. */
+function assertTranslated(content) {
   const visit = (value, path) => {
     if (Array.isArray(value)) {
       value.forEach((item, index) => visit(item, `${path}[${index}]`));
     } else if (value && typeof value === 'object') {
       if (typeof value.en === 'string') {
-        assert.ok(value.fr, `${path} has no French text`);
+        for (const language of ['fr', 'de', 'es']) {
+          assert.ok(value[language], `${path} has no ${language} text`);
+        }
         return;
       }
       Object.entries(value).forEach(([key, item]) => visit(item, `${path}.${key}`));
@@ -58,12 +60,12 @@ function assertBilingual(content) {
 // Every content produced must be rendered exactly as sent by the core: the
 // budget (8 components, 2 texts, 4 buttons, unique action keys) and the text
 // bounds are what validateWidgetContent checks.
-test('widgets - every widget produces a valid content, in both languages, within its ttl', () => {
+test('widgets - every widget produces a valid content, in every language, within its ttl', () => {
   for (const key of Object.values(WIDGET)) {
-    for (const language of ['fr', 'en', 'de']) {
+    for (const language of ['fr', 'en', 'de', 'es', 'it']) {
       const content = widgetContent(key, view(), { app_1: 'Netflix' }, language);
       assert.deepEqual(validateWidgetContent(content), [], `${key} (${language})`);
-      assertBilingual(content);
+      assertTranslated(content);
       assert.equal(content.ttl_seconds, WIDGET_TTL_SECONDS[key]);
       assert.ok(content.ttl_seconds >= 10 && content.ttl_seconds <= 3600);
       assert.ok(buttons(content).length <= 4);
@@ -83,7 +85,7 @@ test('widgets - the empty states are a sentence, never an error', () => {
     assert.equal(content.components.length, 1);
     assert.equal(content.components[0].type, 'text');
     assert.equal(content.components[0].variant, 'body');
-    assertBilingual(content);
+    assertTranslated(content);
   }
   assert.match(emptyContent('none').components[0].text.fr, /appairée/);
   assert.match(emptyContent('unknown').components[0].text.fr, /plus appairée/);
@@ -124,13 +126,19 @@ test('widgets - remote: the TV name, its states and the four keys', () => {
   const rows = status(content).items;
   assert.equal(rows.length, 4);
   assert.deepEqual(rows[0], {
-    label: { en: 'Power', fr: 'Alimentation' },
-    value: { en: 'On', fr: 'Allumée' },
+    label: { en: 'Power', fr: 'Alimentation', de: 'Strom', es: 'Alimentación' },
+    value: { en: 'On', fr: 'Allumée', de: 'An', es: 'Encendido' },
     color: 'success',
   });
-  assert.deepEqual(rows[1], { label: { en: 'Volume', fr: 'Volume' }, value: '42 %' });
-  assert.deepEqual(rows[2], { label: { en: 'Mute', fr: 'Sourdine' }, value: { en: 'No', fr: 'Non' } });
-  assert.deepEqual(rows[3], { label: { en: 'Application', fr: 'Application' }, value: 'Netflix' });
+  assert.deepEqual(rows[1], { label: { en: 'Volume', fr: 'Volume', de: 'Lautstärke', es: 'Volumen' }, value: '42 %' });
+  assert.deepEqual(rows[2], {
+    label: { en: 'Mute', fr: 'Sourdine', de: 'Stumm', es: 'Silencio' },
+    value: { en: 'No', fr: 'Non', de: 'Nein', es: 'No' },
+  });
+  assert.deepEqual(rows[3], {
+    label: { en: 'Application', fr: 'Application', de: 'App', es: 'Aplicación' },
+    value: 'Netflix',
+  });
 
   assert.deepEqual(
     buttons(content).map((button) => [button.action.key, button.icon, button.label.fr]),
@@ -145,19 +153,24 @@ test('widgets - remote: the TV name, its states and the four keys', () => {
 
 test('widgets - remote: an off or unreachable TV offers to turn it on', () => {
   const off = remoteContent(view({ powered: false }));
-  assert.deepEqual(status(off).items[0].value, { en: 'Off', fr: 'Éteinte' });
+  assert.deepEqual(status(off).items[0].value, { en: 'Off', fr: 'Éteinte', de: 'Aus', es: 'Apagado' });
   assert.equal(status(off).items[0].color, 'neutral');
   assert.equal(buttons(off)[0].label.fr, 'Allumer');
 
   // Connected but nothing reported yet: it answered the connection, so it is
   // awake, as the client assumes after its grace delay.
   const silent = remoteContent(view({ powered: null }));
-  assert.deepEqual(status(silent).items[0].value, { en: 'On', fr: 'Allumée' });
+  assert.deepEqual(status(silent).items[0].value, { en: 'On', fr: 'Allumée', de: 'An', es: 'Encendido' });
   assert.equal(buttons(silent)[0].label.fr, 'Éteindre');
 
   // Unreachable: the TV is fully powered off (or gone), whatever it said last.
   const gone = remoteContent(view({ connected: false, powered: true }));
-  assert.deepEqual(status(gone).items[0].value, { en: 'Unreachable', fr: 'Injoignable' });
+  assert.deepEqual(status(gone).items[0].value, {
+    en: 'Unreachable',
+    fr: 'Injoignable',
+    de: 'Nicht erreichbar',
+    es: 'Inaccesible',
+  });
   assert.equal(status(gone).items[0].color, 'warning');
   assert.equal(buttons(gone)[0].label.fr, 'Allumer');
   assert.deepEqual(validateWidgetContent(gone), []);
@@ -177,7 +190,9 @@ test('widgets - remote: unknown states are left out, the power row always stays'
 test('widgets - media: the foreground app and the playback keys', () => {
   const content = mediaContent(view());
   assert.deepEqual(validateWidgetContent(content), []);
-  assert.deepEqual(status(content).items, [{ label: { en: 'Application', fr: 'Application' }, value: 'Netflix' }]);
+  assert.deepEqual(status(content).items, [
+    { label: { en: 'Application', fr: 'Application', de: 'App', es: 'Aplicación' }, value: 'Netflix' },
+  ]);
   assert.deepEqual(
     buttons(content).map((button) => [button.action.key, button.icon]),
     [
@@ -196,7 +211,12 @@ test('widgets - media: the foreground app and the playback keys', () => {
   // Unreachable: say it, the keys would fail.
   const gone = mediaContent(view({ connected: false }));
   assert.deepEqual(validateWidgetContent(gone), []);
-  assert.deepEqual(status(gone).items[0].value, { en: 'Unreachable', fr: 'Injoignable' });
+  assert.deepEqual(status(gone).items[0].value, {
+    en: 'Unreachable',
+    fr: 'Injoignable',
+    de: 'Nicht erreichbar',
+    es: 'Inaccesible',
+  });
 });
 
 test('widgets - apps: without a name, the first four apps of the launcher', () => {
@@ -274,6 +294,12 @@ test('widgets - apps: an unknown name is reported with the known ones, within 80
 
   const english = appsContent(view(), { app_1: 'Zorglub' }, 'en');
   assert.match(texts(english)[1].text, /^Unknown: Zorglub\. Known: /);
+  const german = appsContent(view(), { app_1: 'Zorglub' }, 'de');
+  assert.match(texts(german)[1].text, /^Unbekannt: Zorglub\. Bekannt: /);
+  const spanish = appsContent(view(), { app_1: 'Zorglub' }, 'es');
+  assert.match(texts(spanish)[1].text, /^Desconocido: Zorglub\. Conocidos: /);
+  const italian = appsContent(view(), { app_1: 'Zorglub' }, 'it');
+  assert.match(texts(italian)[1].text, /^Unknown: Zorglub\. Known: /);
 });
 
 test('widgets - apps: nothing to offer says so instead of an empty card', () => {
@@ -297,11 +323,16 @@ test('widgets - volume: a tile bound to the volume feature, the mute state, thre
   assert.deepEqual(validateWidgetContent(content), []);
   assert.deepEqual(content.components[1], {
     type: 'value',
-    label: { en: 'Volume', fr: 'Volume' },
+    label: { en: 'Volume', fr: 'Volume', de: 'Lautstärke', es: 'Volumen' },
     icon: 'volume-2',
     device_feature: `${DEVICE_ID}:volume`,
   });
-  assert.deepEqual(status(content).items, [{ label: { en: 'Mute', fr: 'Sourdine' }, value: { en: 'Yes', fr: 'Oui' } }]);
+  assert.deepEqual(status(content).items, [
+    {
+      label: { en: 'Mute', fr: 'Sourdine', de: 'Stumm', es: 'Silencio' },
+      value: { en: 'Yes', fr: 'Oui', de: 'Ja', es: 'Sí' },
+    },
+  ]);
   assert.deepEqual(
     buttons(content).map((button) => [button.action.key, button.icon]),
     [
@@ -318,7 +349,7 @@ test('widgets - volume: a TV not added as a device gets a plain tile with the la
   assert.deepEqual(validateWidgetContent(content), []);
   assert.deepEqual(content.components[1], {
     type: 'value',
-    label: { en: 'Volume', fr: 'Volume' },
+    label: { en: 'Volume', fr: 'Volume', de: 'Lautstärke', es: 'Volumen' },
     icon: 'volume-2',
     value: 42,
     unit: '%',
@@ -334,7 +365,12 @@ test('widgets - volume: a TV not added as a device gets a plain tile with the la
   const gone = volumeContent(view({ connected: false }));
   assert.deepEqual(validateWidgetContent(gone), []);
   assert.equal(status(gone).items.length, 2);
-  assert.deepEqual(status(gone).items[0].value, { en: 'Unreachable', fr: 'Injoignable' });
+  assert.deepEqual(status(gone).items[0].value, {
+    en: 'Unreachable',
+    fr: 'Injoignable',
+    de: 'Nicht erreichbar',
+    es: 'Inaccesible',
+  });
 });
 
 test('widgets - the volume tile binds the exact feature id published for the device', async () => {
@@ -390,7 +426,7 @@ test('widgets - every key a button sends is one the TV client knows', async () =
   }
 });
 
-test('widgets - the toasts are short and bilingual', () => {
+test('widgets - the toasts are short and translated', () => {
   const toasts = [
     widgetToast({ kind: 'power', ip: IP }, { turnOn: true }),
     widgetToast({ kind: 'power', ip: IP }, { turnOn: false }),
@@ -399,8 +435,9 @@ test('widgets - the toasts are short and bilingual', () => {
     widgetToast({ kind: 'app', ip: IP, app: 'netflix' }),
   ];
   for (const toast of toasts) {
-    assert.ok(toast.en && toast.fr);
-    assert.ok(toast.en.length <= 200 && toast.fr.length <= 200);
+    for (const language of ['en', 'fr', 'de', 'es']) {
+      assert.ok(toast[language] && toast[language].length <= 200);
+    }
   }
   assert.match(toasts[0].fr, /Allumage/);
   assert.match(toasts[1].fr, /Extinction/);
@@ -411,7 +448,9 @@ test('widgets - the toasts are short and bilingual', () => {
 test('widgets - helpers: language fallback, text bound, foreground app', () => {
   assert.equal(widgetLanguage('fr'), 'fr');
   assert.equal(widgetLanguage('en'), 'en');
-  assert.equal(widgetLanguage('de'), 'en');
+  assert.equal(widgetLanguage('de'), 'de');
+  assert.equal(widgetLanguage('es'), 'es');
+  assert.equal(widgetLanguage('it'), 'en');
   assert.equal(widgetLanguage(undefined), 'en');
 
   assert.equal(fit('  TV Salon  ', 40), 'TV Salon');
