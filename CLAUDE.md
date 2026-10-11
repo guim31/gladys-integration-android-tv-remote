@@ -113,7 +113,7 @@ rafraîchissement des widgets quand la TV change d'état.
 - Tous les textes existent en **`en`, `fr`, `de`, `es`** (les langues de l'interface de Gladys) :
   manifeste, `TEXTS` de `src/widgets.js` (`LANGUAGES`, `widgetLanguage()` retombe sur `en`),
   résultats d'action, statuts de connexion. `test/i18n.test.js` échoue sur une langue manquante, un
-  texte vide ou trop long. Allemand au « Sie », espagnol à « usted », vocabulaire de
+  texte vide ou trop long. Allemand au **tutoiement** (« du », vérifié par le test), espagnol à « usted », vocabulaire de
   `front/src/config/i18n/{de,es}.json` du cœur publié.
 - Restent en anglais : les erreurs levées (`throw new Error`), car le SDK n'en transmet que
   `e.message`, une chaîne ; les noms de fonctionnalités, figés à la création des appareils.

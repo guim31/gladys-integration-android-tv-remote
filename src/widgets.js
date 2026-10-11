@@ -71,13 +71,13 @@ export const TEXTS = {
   noTv: {
     en: 'No TV is paired yet. Run step 1 and step 2 in the configuration of the integration, then pick the TV here.',
     fr: "Aucune TV n'est appairée. Lancez les étapes 1 et 2 dans la configuration de l'intégration, puis choisissez la TV ici.",
-    de: 'Noch kein Fernseher gekoppelt. Führen Sie Schritt 1 und 2 in der Konfiguration der Integration aus und wählen Sie dann hier den Fernseher.',
+    de: 'Noch kein Fernseher gekoppelt. Führe Schritt 1 und 2 in der Konfiguration der Integration aus und wähle dann hier den Fernseher.',
     es: 'Todavía no hay ningún televisor emparejado. Ejecute los pasos 1 y 2 en la configuración de la integración y luego elija aquí el televisor.',
   },
   unknownTv: {
     en: 'The TV picked in the settings of this widget is no longer paired. Pick another one, or leave the field empty.',
     fr: "La TV choisie dans les réglages de ce widget n'est plus appairée. Choisissez-en une autre, ou laissez le champ vide.",
-    de: 'Der in den Einstellungen dieses Widgets gewählte Fernseher ist nicht mehr gekoppelt. Wählen Sie einen anderen oder lassen Sie das Feld leer.',
+    de: 'Der in den Einstellungen dieses Widgets gewählte Fernseher ist nicht mehr gekoppelt. Wähle einen anderen oder lass das Feld leer.',
     es: 'El televisor elegido en la configuración de este widget ya no está emparejado. Elija otro o deje el campo vacío.',
   },
   noApp: {

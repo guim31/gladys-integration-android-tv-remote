@@ -28,7 +28,7 @@
       "description": {
         "en": "Everything you need to type lives in the two numbered actions at the bottom of this page — nothing to save in between. Turn your TV on, run step 1, then step 2, then scan for devices. Repeat for each TV you want to add.",
         "fr": "Tout ce que vous avez à saisir se trouve dans les deux actions numérotées en bas de cette page — rien à enregistrer entre les deux. Allumez votre TV, lancez l'étape 1, puis l'étape 2, puis lancez une recherche d'appareils. Répétez l'opération pour chaque TV à ajouter.",
-        "de": "Alles, was Sie eingeben müssen, steht in den zwei nummerierten Aktionen unten auf dieser Seite — dazwischen ist nichts zu speichern. Schalten Sie den Fernseher ein, führen Sie Schritt 1 und dann Schritt 2 aus und suchen Sie anschließend nach Geräten. Wiederholen Sie das für jeden Fernseher, den Sie hinzufügen möchten.",
+        "de": "Alles, was du eingeben musst, steht in den zwei nummerierten Aktionen unten auf dieser Seite — dazwischen ist nichts zu speichern. Schalte den Fernseher ein, führe Schritt 1 und dann Schritt 2 aus und suche anschließend nach Geräten. Wiederhole das für jeden Fernseher, den du hinzufügen möchtest.",
         "es": "Todo lo que debe introducir está en las dos acciones numeradas al final de esta página — no hay nada que guardar entre ellas. Encienda el televisor, ejecute el paso 1 y luego el paso 2, y después busque dispositivos. Repita la operación para cada televisor que quiera añadir."
       }
     },
@@ -142,7 +142,7 @@
           "description": {
             "en": "MAC address of the TV (e.g. 64:E4:D5:B4:12:66, shown in its network settings). Used to wake a fully powered-off TV with Wake-on-LAN when you turn it on from Gladys.",
             "fr": "Adresse MAC de la TV (ex : 64:E4:D5:B4:12:66, visible dans ses paramètres réseau). Sert à réveiller une TV totalement éteinte via Wake-on-LAN quand vous l'allumez depuis Gladys.",
-            "de": "MAC-Adresse des Fernsehers (z. B. 64:E4:D5:B4:12:66, in seinen Netzwerkeinstellungen angezeigt). Damit wird ein vollständig ausgeschalteter Fernseher per Wake-on-LAN geweckt, wenn Sie ihn über Gladys einschalten.",
+            "de": "MAC-Adresse des Fernsehers (z. B. 64:E4:D5:B4:12:66, in seinen Netzwerkeinstellungen angezeigt). Damit wird ein vollständig ausgeschalteter Fernseher per Wake-on-LAN geweckt, wenn du ihn über Gladys einschaltest.",
             "es": "Dirección MAC del televisor (p. ej. 64:E4:D5:B4:12:66, visible en sus ajustes de red). Sirve para despertar con Wake-on-LAN un televisor totalmente apagado cuando lo enciende desde Gladys."
           },
           "required": false
@@ -171,7 +171,7 @@
           "description": {
             "en": "The 6-character code displayed on the TV screen after step 1. Type it here and run the action right away — the code is single use.",
             "fr": "Le code à 6 caractères affiché sur l'écran de la TV après l'étape 1. Saisissez-le ici et exécutez l'action dans la foulée — le code est à usage unique.",
-            "de": "Der 6-stellige Code, der nach Schritt 1 auf dem Fernseher angezeigt wird. Geben Sie ihn hier ein und führen Sie die Aktion sofort aus — der Code ist nur einmal gültig.",
+            "de": "Der 6-stellige Code, der nach Schritt 1 auf dem Fernseher angezeigt wird. Gib ihn hier ein und führe die Aktion sofort aus — der Code ist nur einmal gültig.",
             "es": "El código de 6 caracteres que aparece en la pantalla del televisor tras el paso 1. Introdúzcalo aquí y ejecute la acción enseguida — el código es de un solo uso."
           },
           "required": true
@@ -201,7 +201,7 @@
           "description": {
             "en": "Pick the TV among your created devices.",
             "fr": "Choisissez la TV parmi vos appareils créés.",
-            "de": "Wählen Sie den Fernseher unter Ihren erstellten Geräten.",
+            "de": "Wähle den Fernseher unter deinen erstellten Geräten.",
             "es": "Elija el televisor entre sus dispositivos creados."
           },
           "required": false
@@ -265,7 +265,7 @@
           "description": {
             "en": "Pick the TV to remove. Its certificates are deleted; pair it again to get it back.",
             "fr": "Choisissez la TV à retirer. Ses certificats sont supprimés ; refaites l'appairage pour la retrouver.",
-            "de": "Wählen Sie den zu entfernenden Fernseher. Seine Zertifikate werden gelöscht; koppeln Sie ihn erneut, um ihn zurückzuholen.",
+            "de": "Wähle den zu entfernenden Fernseher. Seine Zertifikate werden gelöscht; kopple ihn erneut, um ihn zurückzuholen.",
             "es": "Elija el televisor que quiere quitar. Se borran sus certificados; vuelva a emparejarlo para recuperarlo."
           },
           "required": false

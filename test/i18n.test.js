@@ -9,6 +9,11 @@ import { AndroidTVClientManager } from '../src/remote/client-manager.js';
 // English, silently. Every multi-language object must carry exactly these.
 const EXPECTED = ['de', 'en', 'es', 'fr'];
 
+// German says « du », like most screens of Gladys and the other integrations
+// of the author. A capitalized Sie / Ihr… is the polite form: no German text
+// here starts a sentence with « sie » (she, they) or « ihr » (her, you all).
+const POLITE_GERMAN = /\b(Sie|Ihr|Ihre|Ihren|Ihrem|Ihrer|Ihres)\b/;
+
 const manifest = JSON.parse(await readFile(new URL('../gladys-assistant-integration.json', import.meta.url), 'utf8'));
 
 /**
@@ -58,6 +63,9 @@ function assertLocalized(path, text, max) {
     assert.equal(typeof value, 'string', `${path}.${language} is not a text`);
     assert.ok(value.trim().length > 0, `${path}.${language} is empty`);
     assert.ok(value.length <= max, `${path}.${language} is ${value.length} characters long (max ${max})`);
+    if (language === 'de') {
+      assert.doesNotMatch(value, POLITE_GERMAN, `${path}.de must say « du », not « Sie »`);
+    }
   }
 }
 
