@@ -1,5 +1,9 @@
 import AndroidRemotePkg from 'androidtv-remote';
 import { logger } from '@gladysassistant/integration-sdk';
+import { installLibraryConsoleFilter } from './library-console.js';
+
+// The library prints every message it exchanges with the TV: debug level only.
+installLibraryConsoleFilter();
 
 const { AndroidRemote, RemoteKeyCode, RemoteDirection } = AndroidRemotePkg;
 
@@ -265,7 +269,7 @@ export class AndroidTVClient {
     }
 
     this.disconnect();
-    logger.info(`[AndroidTV] Connecting to ${this.ip}...`);
+    logger.debug(`[AndroidTV] Connecting to ${this.ip}...`);
 
     return new Promise((resolve, reject) => {
       let timeout;
@@ -372,7 +376,7 @@ export class AndroidTVClient {
       throw new Error(`Unknown key code: ${keyNameOrCode}`);
     }
 
-    logger.info(`[AndroidTV] Sending keycode ${keyCode} (${keyNameOrCode}) to ${this.ip}`);
+    logger.debug(`[AndroidTV] Sending keycode ${keyCode} (${keyNameOrCode}) to ${this.ip}`);
     return this.remote.sendKey(keyCode, RemoteDirection.SHORT);
   }
 
@@ -389,7 +393,7 @@ export class AndroidTVClient {
   async setPower(turnOn) {
     const requested = Boolean(turnOn);
     if (this.powered !== null && this.powered === requested) {
-      logger.info(`[AndroidTV] TV at ${this.ip} is already ${requested ? 'ON' : 'OFF'}, no key sent.`);
+      logger.debug(`[AndroidTV] TV at ${this.ip} is already ${requested ? 'ON' : 'OFF'}, no key sent.`);
       return;
     }
     await this.sendKey('power');
@@ -406,7 +410,7 @@ export class AndroidTVClient {
   async setMute(muted) {
     const requested = Boolean(muted);
     if (this.muted !== null && this.muted === requested) {
-      logger.info(`[AndroidTV] TV at ${this.ip} is already ${requested ? 'muted' : 'unmuted'}, no key sent.`);
+      logger.debug(`[AndroidTV] TV at ${this.ip} is already ${requested ? 'muted' : 'unmuted'}, no key sent.`);
       return;
     }
     await this.sendKey('mute');
@@ -443,7 +447,7 @@ export class AndroidTVClient {
 
     const key = delta > 0 ? 'volume_up' : 'volume_down';
     const steps = Math.min(Math.abs(delta), this.volumeMax);
-    logger.info(`[AndroidTV] Adjusting volume of ${this.ip} by ${steps} ${key} step(s).`);
+    logger.debug(`[AndroidTV] Adjusting volume of ${this.ip} by ${steps} ${key} step(s).`);
 
     for (let i = 0; i < steps; i += 1) {
       await this.sendKey(key);
@@ -460,7 +464,7 @@ export class AndroidTVClient {
   async sendApp(appUriOrPackage) {
     this._assertConnected();
 
-    logger.info(`[AndroidTV] Opening app ${appUriOrPackage} on ${this.ip}`);
+    logger.debug(`[AndroidTV] Opening app ${appUriOrPackage} on ${this.ip}`);
     if (typeof this.remote.sendAppLink !== 'function') {
       throw new Error('Application launcher is not supported by the current client library version.');
     }
@@ -590,13 +594,13 @@ export class AndroidTVClient {
 
     remote.on('unpaired', () => {
       this.isConnected = false;
-      logger.warn(`[AndroidTV] The TV at ${this.ip} rejected the stored certificate. A new pairing is required.`);
+      logger.debug(`[AndroidTV] The TV at ${this.ip} rejected the stored certificate.`);
       this._emit('unpaired');
     });
 
     remote.on('ready', () => {
       this.isConnected = true;
-      logger.info(`[AndroidTV] Remote session ready with ${this.ip}`);
+      logger.debug(`[AndroidTV] Remote session ready with ${this.ip}`);
       this._guardRemoteManager();
       // A fresh session invalidates what was known of the power state. Google
       // TVs report it right away (remoteStart); a device that reports nothing
@@ -667,7 +671,7 @@ export class AndroidTVClient {
           return;
         }
         this.isConnected = false;
-        logger.warn(`[AndroidTV] Connection closed for ${this.ip}`);
+        logger.debug(`[AndroidTV] Connection closed for ${this.ip}`);
         // The library would now retry every second on its own, forever, even
         // against a TV that is powered off. Close the session for good: the
         // client manager schedules the reconnections, with a capped backoff.

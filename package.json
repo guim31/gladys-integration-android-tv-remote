@@ -16,7 +16,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@gladysassistant/integration-sdk": "^0.14.0",
+    "@gladysassistant/integration-sdk": "^0.15.0",
     "androidtv-remote": "^1.0.10"
   },
   "devDependencies": {
@@ -26,5 +26,9 @@
     "globals": "^17.7.0",
     "prettier": "^3.9.5"
   },
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "overrides": {
+    "protobufjs": "^7.6.6",
+    "node-forge": "^1.4.0"
+  }
 }

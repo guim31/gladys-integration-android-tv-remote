@@ -4,7 +4,7 @@ Téléviseurs et boîtiers Android TV / Google TV pilotés en local par le proto
 6466/6467) : alimentation, volume, sourdine, touches, lanceur d'applications, Wake-on-LAN, widgets.
 
 Intégration externe pour [Gladys Assistant](https://gladysassistant.com) (SDK
-`@gladysassistant/integration-sdk` ^0.14.0, `gladys_version` `>=5.1.0`). Mainteneur : Guilhem
+`@gladysassistant/integration-sdk` ^0.15.0, `gladys_version` `>=5.1.0`). Mainteneur : Guilhem
 (`guim31`). Dépôts jumeaux du même auteur, à consulter pour les widgets : `guim31/gladys-jellyfin`
 et `guim31/gladys-dreame`.
 
@@ -51,6 +51,17 @@ rafraîchissement des widgets quand la TV change d'état.
 - Un lancement d'application réussi n'est **jamais acquitté** ; une application absente provoque
   un `remoteError` qui cite le lien, puis la TV **coupe la connexion**. `sendApp()` attend 1,5 s ce
   verdict pour remonter une erreur lisible.
+- La bibliothèque **écrit sur la console globale** (`console.debug/info/log/error`), quel que soit
+  `LOG_LEVEL` : chaque message reçu de la TV ou envoyé (JSON), chaque tentative de connexion et la
+  pile complète de chaque erreur de socket. `src/remote/library-console.js` (installé au chargement
+  de `android-tv-client.js`) enveloppe ces méthodes : un appel dont l'appelant direct est un
+  fichier de `node_modules/androidtv-remote/` part en `logger.debug`, le reste (dont le logger du
+  SDK, qui écrit par `console.log/error`) passe tel quel. `test/logs.test.js` le vérifie avec le
+  vrai `RemoteMessageManager`.
+- Bibliothèque abandonnée (1.0.10, 2022) : `protobufjs` et `node-forge` sont forcés par
+  `overrides` (7.6 et 1.4, vérifiés : génération de certificat, encodage/décodage des messages
+  Remote et Pairing). Reste un avis `node-forge` sans correctif (vérification de signature
+  RSA PKCS#1), chemin que la bibliothèque n'emprunte pas : elle génère et signe seulement.
 - Le PIN porte un checksum dans ses deux premiers caractères : `sendCode()` renvoie `false` et
   tue la socket sur une faute de frappe, sans rien émettre ensuite.
 
@@ -119,6 +130,25 @@ rafraîchissement des widgets quand la TV change d'état.
   `e.message`, une chaîne ; les noms de fonctionnalités, figés à la création des appareils.
 - Pas de `docs/de.md` ni `docs/es.md` : le store n'indexe que `en` et `fr` (`DOCS_LANGUAGES`), et
   Gladys retombe sur `en`.
+
+## Logs et polling (SDK 0.15)
+
+- **Pas de polling** : aucun `onPoll`, aucun `should_poll`. Les états arrivent poussés par la TV
+  sur la session Remote v2 ; le cœur 5.2.0 (issue Gladys #3198 : sondé seulement si
+  `should_poll: true` **et** `poll_frequency` valide, jamais pour un appareil déjà créé sans) ne
+  change donc rien ici. Si un jour un état devait être lu périodiquement, le faire par un minuteur
+  interne, pas par `onPoll`.
+- États publiés par `publishChangedStates` (`_publish()` du manager) : la TV répète tout son
+  rapport de volume à chaque touche. Le SDK oublie la mémoire d'un appareil à sa création ;
+  `onDeviceCreated` appelle `republishTvState()` quand la session est déjà ouverte.
+- Niveau info = cycle de vie et une ligne par action utilisateur. Perte d'une TV dédupliquée par
+  `unreachable` (Set par IP) : `reportUnreachable()` (warn une fois), « reachable again » (info) au
+  retour, certificat refusé une fois. Les tentatives, touches, pas de volume, messages de la TV :
+  debug. `test/logs.test.js` échoue si une session normale écrit en info.
+- Tests du manager sur `createFakeGladys()` du SDK (`@gladysassistant/integration-sdk/testing`) :
+  attendre la file de `publishChangedStates` par un appel vide avant de lire `fake.states`.
+- Capturer stdout dans un test : le lanceur `node --test` y parle à son parent en **Buffers** ;
+  ne garder que les chaînes (la console) et relayer le reste.
 
 ## Pièges déjà payés
 
