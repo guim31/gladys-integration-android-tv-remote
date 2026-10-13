@@ -130,7 +130,9 @@ gladys.onDeviceDeleted(async (device) => {
 });
 
 // The device of a paired TV was (re-)added from the discovery tab: connect
-// right away so its states start flowing without waiting for a restart.
+// right away so its states start flowing without waiting for a restart, or
+// publish what the open session already knows — Gladys dropped the states
+// sent before the device existed, and the TV only reports changes.
 gladys.onDeviceCreated(async (device) => {
   // The volume widget binds its tile to the new device: re-pull it.
   clientManager.nudgeWidgets(Object.values(WIDGET));
@@ -144,13 +146,13 @@ gladys.onDeviceCreated(async (device) => {
   }
   const client = clientManager.getOrCreateClient(tvConfig);
   if (client.isConnected) {
+    await clientManager.republishTvState(tvIp);
     return;
   }
   try {
     await client.connect();
   } catch (err) {
-    logger.warn(`[AndroidTV] The TV at ${tvIp} is not reachable yet (${err.message}), retrying in the background.`);
-    clientManager.scheduleReconnect(tvIp);
+    clientManager.reportUnreachable(tvIp, err.message);
   }
   await clientManager.refreshConnectionStatus();
 });
@@ -328,7 +330,7 @@ async function ensureClientConnected(tvIp) {
   }
 
   const client = clientManager.getOrCreateClient(tvConfig);
-  logger.info(`[AndroidTV] No live session with ${tvIp}, trying to reconnect...`);
+  logger.debug(`[AndroidTV] No live session with ${tvIp}, trying to reconnect...`);
   try {
     await client.connect();
   } catch (err) {

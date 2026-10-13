@@ -55,6 +55,27 @@ export class AndroidTVClientManager {
     // Pending reconnection timer and current retry delay, per TV IP.
     this.reconnectTimers = new Map();
     this.reconnectDelays = new Map();
+    // TVs whose loss was already reported, by IP: a TV switched off for the
+    // night is probed every 2 minutes, and must not log a line every time —
+    // one line when it is lost, one when it answers again.
+    this.unreachable = new Set();
+  }
+
+  /**
+   * Report a TV as unreachable — once — and keep probing it in the background.
+   *
+   * @param {string} ip TV IP address.
+   * @param {string} reason Why the last attempt failed.
+   */
+  reportUnreachable(ip, reason) {
+    if (!this.unreachable.has(ip)) {
+      this.unreachable.add(ip);
+      logger.warn(
+        `[AndroidTV] The TV at ${ip} is not reachable (${reason}). ` +
+          'Retrying in the background — it will be picked up when it becomes reachable.',
+      );
+    }
+    this.scheduleReconnect(ip);
   }
 
   /**
@@ -217,14 +238,10 @@ export class AndroidTVClientManager {
           }
 
           try {
+            // The 'connected' listener logs the connection.
             await client.connect();
-            logger.info(`[AndroidTV] Connected to ${tv.name || tv.ip} (${tv.ip})`);
           } catch (err) {
-            logger.warn(
-              `[AndroidTV] Failed to connect to the TV at ${tv.ip}: ${err.message} ` +
-                'Retrying in the background — it will be picked up when it becomes reachable.',
-            );
-            this.scheduleReconnect(tv.ip);
+            this.reportUnreachable(tv.ip, err.message);
           }
         }),
     );
@@ -304,8 +321,9 @@ export class AndroidTVClientManager {
   /**
    * Run one scheduled reconnection attempt.
    *
-   * Failures only reschedule quietly: the first failure was already reported,
-   * repeating it every attempt is exactly the log flood the backoff avoids.
+   * Failures only reschedule quietly: the loss was already reported once
+   * (reportUnreachable() or the 'disconnected' listener), repeating it every
+   * attempt is exactly the log flood the backoff avoids.
    *
    * @param {string} ip TV IP address.
    */
@@ -387,6 +405,7 @@ export class AndroidTVClientManager {
       this.clients.delete(ip);
     }
     this.states.delete(ip);
+    this.unreachable.delete(ip);
     if (this.pairingTarget?.ip === ip) {
       this.pairingTarget = null;
     }
@@ -416,6 +435,80 @@ export class AndroidTVClientManager {
       }
       this.clients.delete(ip);
       this.states.delete(ip);
+      this.unreachable.delete(ip);
+    }
+  }
+
+  /**
+   * Publish again everything known of a TV, deduplication memory aside.
+   *
+   * Gladys drops the states of a device that does not exist yet: when the
+   * user adds the TV from the discovery tab, its current power, volume, mute
+   * and application must be sent again, the TV only reports them on change.
+   *
+   * @param {string} ip TV IP address.
+   * @returns {Promise<void>} Resolves once the states are handed to Gladys.
+   */
+  async republishTvState(ip) {
+    const state = this.states.get(ip);
+    if (!state) {
+      return;
+    }
+    const states = [];
+    if (state.powered !== null) {
+      states.push(this._state(ip, 'power', state.powered ? 1 : 0));
+    }
+    if (state.volume !== null) {
+      states.push(this._state(ip, 'volume', state.volume));
+    }
+    if (state.muted !== null) {
+      states.push(this._state(ip, 'mute', state.muted ? 1 : 0));
+    }
+    const app = state.appPackage && this.getApps().find((supported) => supported.package === state.appPackage);
+    if (app) {
+      states.push(this._state(ip, 'app', { text: app.id }));
+    }
+    await this._publish(states);
+  }
+
+  /**
+   * A state in the publishStates format, for a feature of a TV.
+   *
+   * @param {string} ip TV IP address.
+   * @param {string} suffix Feature suffix (power, volume, mute, app).
+   * @param {number|Object} value A number, or `{ text }`.
+   * @returns {Object} `{ device_feature_external_id, state|text }`.
+   */
+  _state(ip, suffix, value) {
+    const ipSanitized = String(ip).replace(/[^a-zA-Z0-9]/g, '_');
+    const state = { device_feature_external_id: this.gladys.externalId(`tv:${ipSanitized}:${suffix}`) };
+    if (value !== null && typeof value === 'object') {
+      state.text = value.text;
+    } else {
+      state.state = value;
+    }
+    return state;
+  }
+
+  /**
+   * Publish the states that changed since the last publication.
+   *
+   * A TV repeats its whole volume report on every key press (a volume set
+   * from 0 to 50 % is fifty reports): only the values that changed reach
+   * Gladys, which caps an integration at 300 states per minute. A failed
+   * publication is retried with the next report of the TV.
+   *
+   * @param {Array<Object>} states States in the publishStates format.
+   * @returns {Promise<void>} Never rejects.
+   */
+  async _publish(states) {
+    if (states.length === 0) {
+      return;
+    }
+    try {
+      await this.gladys.publishChangedStates(states);
+    } catch (err) {
+      logger.debug(`[AndroidTV] Could not publish ${states.length} state(s): ${err.message}`);
     }
   }
 
@@ -432,29 +525,28 @@ export class AndroidTVClientManager {
       certificate_cert: tvConfig.certificate_cert,
     });
 
-    const ipSanitized = String(tvConfig.ip).replace(/[^a-zA-Z0-9]/g, '_');
-    const featureId = (suffix) => this.gladys.externalId(`tv:${ipSanitized}:${suffix}`);
-    const publish = (suffix, value) => this.gladys.publishState(featureId(suffix), value).catch(() => {});
-
     const ip = tvConfig.ip;
+    const label = tvConfig.name ? `${tvConfig.name} (${ip})` : ip;
     const everyWidget = Object.values(WIDGET);
 
     client.on('power', (powered) => {
       this._updateTvState(ip, { powered: Boolean(powered) }, [WIDGET.REMOTE]);
-      return publish('power', powered ? 1 : 0);
+      return this._publish([this._state(ip, 'power', powered ? 1 : 0)]);
     });
 
     client.on('volume', (volume) => {
       const changes = {};
+      const states = [];
       if (typeof volume?.level === 'number' && client.volumeMax) {
         changes.volume = Math.round((volume.level / client.volumeMax) * 100);
-        publish('volume', changes.volume);
+        states.push(this._state(ip, 'volume', changes.volume));
       }
       if (typeof volume?.muted === 'boolean') {
         changes.muted = volume.muted;
-        publish('mute', volume.muted ? 1 : 0);
+        states.push(this._state(ip, 'mute', volume.muted ? 1 : 0));
       }
       this._updateTvState(ip, changes, [WIDGET.REMOTE, WIDGET.VOLUME]);
+      return this._publish(states);
     });
 
     // The TV reports the package of its foreground app: shown as the current
@@ -468,13 +560,19 @@ export class AndroidTVClientManager {
       ]);
       const app = this.getApps().find((supported) => supported.package === appPackage);
       if (app) {
-        publish('app', { text: app.id });
+        return this._publish([this._state(ip, 'app', { text: app.id })]);
       }
+      return undefined;
     });
 
     // A TV switched on later, a connection dropped, a certificate revoked: the
     // status shown in the configuration screen has to follow.
     client.on('connected', () => {
+      if (this.unreachable.delete(ip)) {
+        logger.info(`[AndroidTV] The TV ${label} is reachable again.`);
+      } else {
+        logger.info(`[AndroidTV] Connected to the TV ${label}.`);
+      }
       this._cancelReconnect(ip);
       this._updateTvState(ip, { connected: true }, everyWidget);
       return this.refreshConnectionStatus();
@@ -484,10 +582,16 @@ export class AndroidTVClientManager {
     // is probed less and less often.
     client.on('disconnected', () => {
       this._updateTvState(ip, { connected: false }, everyWidget);
-      this.scheduleReconnect(ip);
+      this.reportUnreachable(ip, 'connection closed');
       return this.refreshConnectionStatus();
     });
+    // Reported once, like a lost connection: the stored certificate is
+    // refused at every attempt until the TV is paired again.
     client.on('unpaired', () => {
+      if (!this.unreachable.has(ip)) {
+        this.unreachable.add(ip);
+        logger.warn(`[AndroidTV] The TV at ${ip} rejected the stored certificate. A new pairing is required.`);
+      }
       this._updateTvState(ip, { connected: false }, everyWidget);
       return this.refreshConnectionStatus();
     });

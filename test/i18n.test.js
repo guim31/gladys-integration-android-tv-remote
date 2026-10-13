@@ -198,7 +198,7 @@ test('i18n - every connection status is in every language', async () => {
   const statuses = [];
   const gladys = {
     externalId: (id) => `androidtv:${id}`,
-    publishState: async () => {},
+    publishChangedStates: async () => ({ success: true, count: 0 }),
     setConnectionStatus: async (connected, message) => statuses.push(message),
   };
   const manager = new AndroidTVClientManager(gladys);

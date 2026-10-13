@@ -88,7 +88,7 @@ docker run -d \
 
 ## 🛠️ Dépannage
 
-Premier réflexe : lire les logs du conteneur (`docker logs gladys-ext-...`). Les lignes `[gladys-sdk]` concernent la liaison avec Gladys, les lignes `[AndroidTV]` concernent les TV.
+Premier réflexe : lire les logs du conteneur (`docker logs gladys-ext-...`). Les lignes `[gladys-sdk]` concernent la liaison avec Gladys, les lignes `[AndroidTV]` concernent les TV. Au niveau par défaut, seuls le cycle de vie (démarrage, TV connectée, perdue, revenue) et les actions de l'utilisateur sont écrits ; le détail des échanges avec la TV (dont les messages de la bibliothèque `androidtv-remote`) ne sort qu'avec `LOG_LEVEL=debug`.
 
 ### « L'action a échoué. Vérifiez que l'intégration est démarrée » / le toggle retombe sur « arrêté »
 
@@ -147,7 +147,8 @@ Rien d'agressif. Quand une TV appairée est injoignable (hors tension, débranch
 tente de s'y reconnecter en arrière-plan avec un délai qui **double à chaque échec** (5 s, 10 s,
 20 s… plafonné à 2 minutes), et le délai repart à zéro dès qu'une connexion aboutit. La TV est donc
 reprise automatiquement en quelques secondes lorsqu'elle redevient joignable (allumage, retour de
-veille réseau), sans inonder les logs ni le réseau entre-temps. Une commande envoyée depuis un
+veille réseau), sans inonder les logs ni le réseau entre-temps : une ligne quand la TV est perdue,
+une quand elle revient, rien entre les deux. Une commande envoyée depuis un
 dashboard pendant ce temps déclenche une tentative immédiate : si la TV ne répond pas, la commande
 échoue en quelques secondes avec un message explicite au lieu de rester bloquée.
 

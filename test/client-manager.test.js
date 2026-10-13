@@ -1,21 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createFakeGladys } from '@gladysassistant/integration-sdk/testing';
 import {
   AndroidTVClientManager,
   RECONNECT_INITIAL_DELAY_MS,
   RECONNECT_MAX_DELAY_MS,
 } from '../src/remote/client-manager.js';
 
+// The SDK fake: a real GladysIntegration whose host API is in memory, with
+// the deduplication of publishChangedStates and the checks of Gladys.
 function createMockGladys() {
-  const published = [];
-  const statuses = [];
-  return {
-    published,
-    statuses,
-    externalId: (id) => `androidtv:${id}`,
-    publishState: async (externalId, value) => published.push({ externalId, value }),
-    setConnectionStatus: async (connected, message) => statuses.push({ connected, message }),
-  };
+  return createFakeGladys();
+}
+
+const FEATURE = 'ext:test-integration:tv:192_168_1_50';
+
+/**
+ * Wait for the publications queued so far: publishChangedStates runs its
+ * calls one after the other, an empty call resolves after all of them.
+ *
+ * @param {Object} gladys The fake Gladys client.
+ * @returns {Promise<void>} Resolves once they reached the fake.
+ */
+async function published(gladys) {
+  await gladys.publishChangedStates([]);
+  return gladys.fake.states;
 }
 
 test('AndroidTVClientManager - should register a client for every configured TV', async () => {
@@ -68,7 +77,7 @@ test('AndroidTVClientManager - should not try to connect an unpaired TV', async 
   assert.equal(client.isConnected, false);
   assert.equal(client.remote, null);
 
-  const status = gladys.statuses.at(-1);
+  const status = gladys.fake.connectionStatuses.at(-1);
   assert.equal(status.connected, false);
   assert.match(status.message.fr, /appairée/);
 });
@@ -79,7 +88,7 @@ test('AndroidTVClientManager - should report an explicit status when nothing is 
 
   await manager.connectAll([]);
 
-  const status = gladys.statuses.at(-1);
+  const status = gladys.fake.connectionStatuses.at(-1);
   assert.equal(status.connected, false);
   assert.match(status.message.fr, /Aucune Android TV configurée/);
 });
@@ -95,11 +104,57 @@ test('AndroidTVClientManager - should publish TV states on the matching feature 
   client.volumeMax = 50;
   client._emit('volume', { level: 25, maximum: 50, muted: true });
 
-  assert.deepEqual(gladys.published, [
-    { externalId: 'androidtv:tv:192_168_1_50:power', value: 1 },
-    { externalId: 'androidtv:tv:192_168_1_50:volume', value: 50 },
-    { externalId: 'androidtv:tv:192_168_1_50:mute', value: 1 },
+  assert.deepEqual(await published(gladys), [
+    { device_feature_external_id: `${FEATURE}:power`, state: 1 },
+    { device_feature_external_id: `${FEATURE}:volume`, state: 50 },
+    { device_feature_external_id: `${FEATURE}:mute`, state: 1 },
   ]);
+});
+
+test('AndroidTVClientManager - a TV repeating its volume report publishes only the changes', async () => {
+  const gladys = createMockGladys();
+  const manager = new AndroidTVClientManager(gladys);
+  const client = manager.getOrCreateClient({ ip: '192.168.1.50' });
+  client.volumeMax = 100;
+
+  // A volume set from 10 to 13 %: one report per key press, the mute flag
+  // repeated in each of them.
+  [10, 11, 12, 13, 13].forEach((level) => client._emit('volume', { level, maximum: 100, muted: false }));
+
+  assert.deepEqual(await published(gladys), [
+    { device_feature_external_id: `${FEATURE}:volume`, state: 10 },
+    { device_feature_external_id: `${FEATURE}:mute`, state: 0 },
+    { device_feature_external_id: `${FEATURE}:volume`, state: 11 },
+    { device_feature_external_id: `${FEATURE}:volume`, state: 12 },
+    { device_feature_external_id: `${FEATURE}:volume`, state: 13 },
+  ]);
+});
+
+test('AndroidTVClientManager - republishTvState sends again what is known, for a device just created', async () => {
+  const gladys = createMockGladys();
+  const manager = new AndroidTVClientManager(gladys);
+  const client = manager.getOrCreateClient({ ip: '192.168.1.50' });
+  client.volumeMax = 100;
+  client._emit('power', true);
+  client._emit('volume', { level: 30, maximum: 100, muted: false });
+  client._emit('current_app', 'com.netflix.ninja');
+  const before = (await published(gladys)).length;
+
+  // What the SDK does when the user adds the device: Gladys dropped the
+  // states sent before, the deduplication memory is wiped.
+  gladys.forgetPublishedStates();
+  await manager.republishTvState('192.168.1.50');
+
+  assert.deepEqual(gladys.fake.states.slice(before), [
+    { device_feature_external_id: `${FEATURE}:power`, state: 1 },
+    { device_feature_external_id: `${FEATURE}:volume`, state: 30 },
+    { device_feature_external_id: `${FEATURE}:mute`, state: 0 },
+    { device_feature_external_id: `${FEATURE}:app`, text: 'netflix' },
+  ]);
+
+  // A TV never heard of: nothing to send.
+  await manager.republishTvState('192.168.1.99');
+  assert.equal(gladys.fake.states.length, before + 4);
 });
 
 test('AndroidTVClientManager - a configuration save must not kill a pairing in progress', () => {
@@ -215,7 +270,7 @@ test('AndroidTVClientManager - promptReconnect should forget the accumulated bac
   manager.disconnectAll();
 });
 
-test('AndroidTVClientManager - a known app reported by the TV updates the application select', () => {
+test('AndroidTVClientManager - a known app reported by the TV updates the application select', async () => {
   const gladys = createMockGladys();
   const manager = new AndroidTVClientManager(gladys);
   const client = manager.getOrCreateClient({ ip: '192.168.1.50' });
@@ -223,7 +278,7 @@ test('AndroidTVClientManager - a known app reported by the TV updates the applic
   client._emit('current_app', 'com.netflix.ninja');
   client._emit('current_app', 'com.some.unknown.app'); // not in the catalog: nothing published
 
-  assert.deepEqual(gladys.published, [{ externalId: 'androidtv:tv:192_168_1_50:app', value: { text: 'netflix' } }]);
+  assert.deepEqual(await published(gladys), [{ device_feature_external_id: `${FEATURE}:app`, text: 'netflix' }]);
 });
 
 test('AndroidTVClientManager - removeClient and disconnectAll should cancel pending reconnections', () => {
@@ -361,8 +416,12 @@ test('AndroidTVClientManager - a pending nudge is sent when the window ends', as
 });
 
 test('AndroidTVClientManager - the widgets survive an SDK without requestWidgetRefresh', () => {
-  // The plain mock has no requestWidgetRefresh: states are still tracked.
-  const manager = new AndroidTVClientManager(createMockGladys());
+  // A plain client without requestWidgetRefresh: states are still tracked.
+  const manager = new AndroidTVClientManager({
+    externalId: (id) => `ext:test-integration:${id}`,
+    publishChangedStates: async () => ({ success: true, count: 0 }),
+    setConnectionStatus: async () => {},
+  });
   const client = manager.getOrCreateClient({ ip: '192.168.1.50' });
   client._emit('power', true);
   assert.equal(manager.getTvState('192.168.1.50').powered, true);
