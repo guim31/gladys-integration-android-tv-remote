@@ -8,8 +8,8 @@
     "de": "Gladys-Assistant-Integration für Android TV und Google TV über das Protokoll Remote v2.",
     "es": "Integración de Gladys Assistant para Android TV y Google TV mediante el protocolo Remote v2."
   },
-  "version": "1.5.1",
-  "docker_image": "ghcr.io/guim31/gladys-integration-android-tv-remote:1.5.1",
+  "version": "1.5.2",
+  "docker_image": "ghcr.io/guim31/gladys-integration-android-tv-remote:1.5.2",
   "gladys_version": ">=5.1.0",
   "categories": ["multimedia"],
   "cover_image": "https://raw.githubusercontent.com/guim31/gladys-integration-android-tv-remote/main/cover.png",
