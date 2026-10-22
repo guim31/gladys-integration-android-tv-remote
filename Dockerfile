@@ -1,13 +1,13 @@
 # Docker Hub refuses anonymous pulls from the shared GitHub runners (429):
 # same official image, from the ECR Public mirror.
-FROM public.ecr.aws/docker/library/node:20-alpine AS builder
+FROM public.ecr.aws/docker/library/node:24-alpine AS builder
 
 WORKDIR /app
 
 COPY package*.json ./
 RUN npm ci --only=production
 
-FROM public.ecr.aws/docker/library/node:20-alpine
+FROM public.ecr.aws/docker/library/node:24-alpine
 
 WORKDIR /app
 
